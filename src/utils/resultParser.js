@@ -1,8 +1,6 @@
 const vscode = require("vscode");
 
 function testResultHandler(test, results, run) {
-
-
     // First update the current Node. 
     updateTestWithResults(test, results, run);
     // Great! If we have children, we have to go through them and update them recursively.
@@ -33,11 +31,17 @@ function findPositionFromStack(test, stack) {
 
 function updateSpecWithResults(specResult, test, run) {
 
+    // We might have a bunch of results inside the children so we need to check the result for each spec.
     if (test.tags.includes("spec") && test.label === specResult.name) {
         // IF we have a spec, it is in error. 
         // Todo. Figure out if the position is correct
         let position = new vscode.Position(test.range.start.line, test.range.start.character);
         let message = "";
+        if (specResult.totalError === -1) {
+            run.failed(test, "Test Failed", specResult.totalDuration);
+            return;
+        }
+
         switch (specResult.status) {
             case "Passed":
                 run.passed(test, specResult.totalDuration);
@@ -56,15 +60,18 @@ function updateSpecWithResults(specResult, test, run) {
                 run.errored(test, errorMessage, specResult.totalDuration);
                 break;
 
-            // skipped(test: TestItem): void;
-            default:
-        }
-    }
 
-    if (test.children.size > 0) {
-        test.children.forEach(child => {
-            updateSpecWithResults(specResult, child, run)
-        });
+            default:
+                run.errored(test, "Test Errored", specResult.totalDuration);
+                break;
+
+        }
+
+        if (test.children.size > 0) {
+            test.children.forEach(child => {
+                updateSpecWithResults(specResult, child, run)
+            });
+        }
     }
 }
 
@@ -97,21 +104,46 @@ function findSpecsInResults(results, specs) {
 }
 
 
+function getAllSpecsFromTest(test){
+    let specs = [];
+    const tags = test.tags || [];
+    console.log("tags", tags);
+    if(tags.includes("spec")){
+        specs.push(test);
+    }
+    const children = test.children.get();
+    test.children.forEach(child => {
+        console.log("child", child);
+        specs.push(...getAllSpecsFromTest(child));
+    });
+    
+    return specs;
+}
+
 // This might be a bit overkill since we just really want the spec info
 function updateTestWithResults(test, results, run) {
-    if (results.totalError > 0) {
-        run.errored(test, "Test Errored", results.totalDuration);
+    if (results.totalError > 0 || results.totalError === -1) {
+
+        run.errored(test, "Test Errors occurred", results.totalDuration);
         const position = new vscode.Position(test.range.start.line, test.range.start.character);
         run.appendOutput(`Test Errored: ${test.label}\r\n`, position, test);
-    } else if (results.totalFail > 0) {
+    }
+    else if (results.totalFail > 0) {
         run.failed(test, "Test failed", results.totalDuration);
         const position = new vscode.Position(test.range.start.line, test.range.start.character);
         run.appendOutput(`Test failed: ${test.label}\r\n`, position, test);
-    } else {
+    }
+    else if (results.totalSkipped > 0) {
+        run.skipped(test, results.totalDuration);
+        const position = new vscode.Position(test.range.start.line, test.range.start.character);
+        run.appendOutput(`Test Skipped: ${test.label}\r\n`, position, test);
+    }
+    else {
         run.passed(test, results.totalDuration);
         const position = new vscode.Position(test.range.start.line, test.range.start.character);
         run.appendOutput(`Test Passed: ${test.label}\r\n`, position, test);
     }
+    
 }
 
 function findSuiteInResults(test, resultsArr) {
@@ -129,6 +161,197 @@ function findSuiteInResults(test, resultsArr) {
     return null;
 }
 
+/**
+ * This parsers the full results and returns the object structure we need.
+ * his will be a number of objects whhich we can then query.
+ */
+function parseTestResults(resultObject) {
+
+    return new TestResult(resultObject);
+}
+// Some of the objects to return
+class TestResult {
+    totalSuites = 0;
+    startTime = 0;
+    totalPass = 0;
+    totalDuration = 0;
+    totalSkipped = 0;
+    totalFail = 0;
+    totalSpecs = 0;
+    resultID = "";
+    endTime = 0;
+    totalError = 0;
+    totalBundles = 0;
+    bundles = [];
+
+    constructor(result) {
+        this.totalSuites = result.totalSuites || 0;
+        this.startTime = result.startTime || 0;
+        this.totalPass = result.totalPass || 0;
+        this.totalDuration = result.totalDuration || 0;
+        this.totalSkipped = result.totalSkipped || 0;
+        this.totalFail = result.totalFail || 0;
+        this.totalSpecs = result.totalSpecs || 0;
+        this.resultID = result.resultID || "";
+        this.endTime = result.endTime || 0;
+        this.totalError = result.totalError || 0;
+        this.totalBundles = result.totalBundles || 0;
+
+        for (let bundle of result.bundleStats) {
+            let bundleObj = new Bundle(bundle);
+            bundleObj.parent = this;
+            this.bundles.push(bundleObj);
+        }
+    }
+
+    getSpecs(){
+        let specs = [];
+        for (let bundle of this.bundles) {
+            specs.push(...bundle.getSpecs());
+        }
+        return specs;
+    }
+
+}
+
+class Bundle {
+    totalSuites = 0;
+    startTime = 0;
+    totalPass = 0;
+    totalDuration = 0;
+    totalSkipped = 0;
+    totalFail = 0;
+    totalSpecs = 0;
+    path = "";
+    endTime = 0;
+    totalError = 0;
+    name = "";
+    id = "";
+    suites = [];
+    parent = null;
+
+    constructor(bundle) {
+        this.totalSuites = bundle.totalSuites || 0;
+        this.startTime = bundle.startTime || 0;
+        this.totalPass = bundle.totalPass || 0;
+        this.totalDuration = bundle.totalDuration || 0;
+        this.totalSkipped = bundle.totalSkipped || 0;
+        this.totalFail = bundle.totalFail || 0;
+        this.totalSpecs = bundle.totalSpecs || 0;
+        this.path = bundle.path || "";
+        this.endTime = bundle.endTime || 0;
+        this.totalError = bundle.totalError || 0;
+        this.name = bundle.name || "";
+        this.id = bundle.id || "";
+
+        for (let suite of bundle.suiteStats) {
+            let suiteObj = new Suite(suite);
+            suiteObj.parent = this;
+            this.suites.push(suiteObj);
+        }
+
+    }
+
+    getSpecs() {
+        let specs = [];
+        for (let suite of this.suites) {
+            specs.push(...suite.getSpecs());
+        }
+        return specs;
+    }
+}
+
+class Suite {
+
+    startTime = 0;
+    totalPass = 0;
+    totalDuration = 0;
+    totalSkipped = 0;
+    totalFail = 0;
+    totalSpecs = 0;
+    bundleID = 0;
+    endTime = 0;
+    totalError = 0;
+    status = "";
+    name = "";
+    id = "";
+    specs = [];
+    suites = [];
+    parent = null;
+
+    constructor(suite) {
+        this.startTime = suite.startTime || 0;
+        this.totalPass = suite.totalPass || 0;
+        this.totalDuration = suite.totalDuration || 0;
+        this.totalSkipped = suite.totalSkipped || 0;
+        this.totalFail = suite.totalFail || 0;
+        this.totalSpecs = suite.totalSpecs || 0;
+        this.bundleID = suite.bundleID || 0;
+        this.endTime = suite.endTime || 0;
+        this.totalError = suite.totalError || 0;
+        this.status = suite.status || "";
+        this.name = suite.name || "";
+        this.id = suite.id || "";
+
+        for (let spec of suite.specStats) {
+            let specObj = new Spec(spec);
+            specObj.parent = this;
+            this.specs.push(specObj);
+        }
+
+        for (let subsuite of suite.suiteStats) {
+            let suiteObj = new Suite(subsuite);
+            suiteObj.parent = this;
+            this.suites.push(suiteObj);
+        }
+
+    }
+    getSpecs() {
+        let specs = [];
+        for (let spec of this.specs) {
+            specs.push(spec);
+        }
+        for (let suite of this.suites) {
+            specs.push(...suite.getSpecs());
+        }
+        return specs;
+    }
+}
+
+class Spec {
+    error = {};
+    startTime = 0;
+    failExtendedInfo = "";
+    totalDuration = 0;
+    failStacktrace = "";
+    failOrigin = {};
+    status = "";
+    suiteID = "";
+    endTime = 0;
+    name = "";
+    id = "";
+    failMessage = "";
+    failDetail = "";
+
+    parent = null;
+
+    constructor(spec) {
+        this.error = spec.error || {};
+        this.startTime = spec.startTime || 0;
+        this.failExtendedInfo = spec.failExtendedInfo || "";
+        this.totalDuration = spec.totalDuration || 0;
+        this.failStacktrace = spec.failStacktrace || "";
+        this.failOrigin = spec.failOrigin || {};
+        this.status = spec.status || "";
+        this.suiteID = spec.suiteID || "";
+        this.endTime = spec.endTime || 0;
+        this.name = spec.name || "";
+        this.id = spec.id || "";
+        this.failMessage = spec.failMessage || "";
+        this.failDetail = spec.failDetail || "";
+
+    }
+}
 
 
 function matchResultsToTests(testTree, results, run) {
@@ -223,5 +446,8 @@ function findSpec(suiteName, test) {
 module.exports = {
     testResultHandler,
     findSuiteInResults,
-    matchResultsToTests
+    matchResultsToTests,
+    parseTestResults,
+    getAllSpecsFromTest,
+    updateTestWithResults
 }

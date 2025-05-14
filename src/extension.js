@@ -2,7 +2,8 @@ const vscode = require("vscode");
 const BoxCommand = require("./box-command");
 const { LOG } = require('./utils/logger');
 
-const { createTestingViewController } = require('./testingExplorer');
+const { createTestingViewController } = require('./views/testingExplorer');
+// const { createTestingViewController } = require('./views/testingExplorer');
 
 let globalCommand = new BoxCommand({ runHarness: true });
 
@@ -13,7 +14,6 @@ let globalCommand = new BoxCommand({ runHarness: true });
 
 module.exports.activate = function (context) {
 	// Use the console to output diagnostic information (LOG.info) and errors (console.error)
-	LOG.info("Starting TestBox Extension");
 	let disposables = [];
 
 	// Display a message box to the user
@@ -66,25 +66,16 @@ module.exports.activate = function (context) {
 		}
 	}));
 
+	
+	
+	
 	// Add the UI Panel for the TestBox Runner
-	const { controller, watcher } = createTestingViewController();
+	const { controller, watcher, settingsWatcher } = createTestingViewController();
 	disposables.push(controller);
 	disposables.push(watcher);
+	disposables.push(settingsWatcher);
 
-	// Update the test view when the configuration changes
-	disposables.push(
-		vscode.workspace.onDidChangeConfiguration(e => {
-			// We could filter this out more but for now just re-discover the tests
-			// if (
-			// 	e.affectsConfiguration('testbox.excludedPaths') ||
-			// 	e.affectsConfiguration('testbox.pathMappings') ||
-			// 	e.affectsConfiguration('testbox.runnerUrl')
-			// ) {
-			discoverTests(controller);
-			// }
-		})
-	);
-
+	
 	// Listen for configuration changes
 
 	context.subscriptions.push(disposables);
