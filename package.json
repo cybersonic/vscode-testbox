@@ -1,302 +1,306 @@
 {
-    "name": "vscode-testbox",
-    "displayName": "TestBox",
-    "description": "TestBox TDD/BDD Unit Testing Support for Visual Studio Code",
-    "version": "2.0.3",
-    "publisher": "ortus-solutions",
-    "icon": "images/icon.png",
-    "engines": {
-        "vscode": "^1.97.0"
-    },
-    "type": "commonjs",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/Ortus-Solutions/vscode-testbox.git"
-    },
-    "bugs": {
-        "url": "https://github.com/Ortus-Solutions/vscode-testbox/issues"
-    },
-    "categories": [
-        "Testing",
-        "Snippets",
-        "Other"
-    ],
-    "keywords": [
-        "CFML",
-        "ColdFusion",
-        "TestBox",
-        "MockBox",
-        "BDD/TDD",
-        "Mocking",
-        "Testing"
-    ],
-    "activationEvents": [
-        "onStartupFinished"
-    ],
-    "main": "./src/extension",
-    "contributes": {
-        "commands": [
-            {
-                "command": "testbox.jumpToSpec",
-                "title": "TestBox: Jump to spec"
-            },
-            {
-                "command": "testbox.run-harness",
-                "title": "TestBox: Run Harness"
-            },
-            {
-                "command": "testbox.run-bundle",
-                "title": "TestBox: Run Bundle"
-            },
-            {
-                "command": "testbox.run-spec",
-                "title": "TestBox: Run Spec"
-            },
-            {
-                "command": "testbox.run-previous",
-                "title": "TestBox: Run Previous"
-            }
-        ],
-        "keybindings": [
-            {
-                "key": "cmd+k cmd+r",
-                "command": "testbox.run-harness"
-            },
-            {
-                "key": "cmd+k cmd+s",
-                "command": "testbox.run-spec"
-            },
-            {
-                "key": "cmd+k cmd+f",
-                "command": "testbox.run-bundle",
-                "when": "editorLangId == 'cfml' && editorTextFocus"
-            },
-            {
-                "key": "cmd+k cmd+p",
-                "command": "testbox.run-previous",
-                "when": "editorLangId == 'cfml' && editorTextFocus"
-            },
-            {
-                "key": "shift+cmd+t",
-                "command": "testbox.jumpToSpec",
-                "when": "editorLangId == 'cfml' && editorTextFocus"
-            }
-        ],
-        "snippets": [
-            {
-                "language": "cfml",
-                "path": "./snippets/snippets.json"
-            }
-        ],
-        "configuration": {
-            "title": "TestBox",
-            "properties": {
-                "testbox.boxBinary": {
-                    "type": [
-                        "string",
-                        "null"
-                    ],
-                    "default": null,
-                    "description": "The CommandBox binary executable. Ex: 'box', '/usr/local/bin/box'"
-                },
-                "testbox.runnerUrl": {
-                    "type": [
-                        "string",
-                        "null"
-                    ],
-                    "default": null,
-                    "description": "Use a specific runner HTTP/s URL instead of discovering it via CommandBox"
-                },
-                "testbox.runnerThreads": {
-                    "type": [
-                        "number",
-                        "null"
-                    ],
-                    "default": 10,
-                    "description": "The number of parallel requests to use when running tests. Default is 10."
-                },
-                "testbox.labels": {
-                    "type": [
-                        "string",
-                        "null"
-                    ],
-                    "default": null,
-                    "description": "A list of labels to apply ALWAYS to the runners"
-                },
-                "testbox.excludes": {
-                    "type": [
-                        "string",
-                        "null"
-                    ],
-                    "default": null,
-                    "description": "A list of labels to EXCLUDE from the runner."
-                },
-                "testbox.bundles": {
-                    "type": [
-                        "string",
-                        "null"
-                    ],
-                    "default": null,
-                    "description": "The path or list of paths of the spec bundles CFCs to execute.  Do not include the .cfc."
-                },
-                "testbox.directory": {
-                    "type": [
-                        "string",
-                        "null"
-                    ],
-                    "default": null,
-                    "description": "The directory to use specifically for running your tests. It defaults to whatever is in your 'runner.cfm'"
-                },
-                "testbox.recurse": {
-                    "type": [
-                        "boolean",
-                        "null"
-                    ],
-                    "default": null,
-                    "description": "Recurse your directory for specs to test or not.  Default is in your 'runner.cfm'"
-                },
-                "testbox.codeCoverage": {
-                    "type": [
-                        "boolean",
-                        "null"
-                    ],
-                    "default": null,
-                    "description": "Enable or disable code coverage in your runner. Default is in your 'runner.cfm'"
-                },
-                "testbox.harnessSuffix": {
-                    "type": [
-                        "string",
-                        "null"
-                    ],
-                    "default": null,
-                    "description": "Specify command options to appended only to the 'testbox run' command, for example add options like 'outputFormats=json,html labels='' excludes=''. Run 'testbox run ?' for more options."
-                },
-                "testbox.bundleSuffix": {
-                    "type": [
-                        "string",
-                        "null"
-                    ],
-                    "default": null,
-                    "description": "Specify command options to appended only to the 'testbox run bundles={File}' command, for example add options like 'outputFormats=json,html labels='' excludes=''. Run 'testbox run ?' for more options."
-                },
-                "testbox.pathMappings": {
-                    "type": "array",
-                    "default": [],
-                    "description": "Define custom path mappings. Each mapping is an object with a 'source' (the original path) and a 'target' (the new alias). For example, mapping 'unit_tests/tests/specs' to 'tests/specs'. The mappings are relative to the root path of the workspace and enables the package name to be resolved correctly.",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "source": {
-                                "type": "string",
-                                "description": "The original path to map from."
-                            },
-                            "target": {
-                                "type": "string",
-                                "description": "The new alias to map to."
-                            }
-                        }
-                    }
-                },
-                "testbox.excludedPaths": {
-                    "type": [
-                        "string",
-                        "null"
-                    ],
-                    "default": null,
-                    "description": "Glob patterns for files to ignore in the testing view."
-                },
-                "testbox.excludedPackages": {
-                    "type": [
-                        "string",
-                        "null"
-                    ],
-                    "default": null,
-                    "description": "Comma separated list of packages names to exclide from the testing view. e.g [tests.testbox.tests, tests.testbox.mocks]"
-                }
-            }
-        },
-        "problemMatchers": [
-            {
-                "name": "testbox",
-                "owner": "testbox",
-                "fileLocation": "absolute",
-                "severity": "error",
-                "pattern": [
-                    {
-                        "regexp": "(Error|Failure):(.*)\\n(\\s)*->\\sat\\s(.*):(\\d+)",
-                        "severity": 1,
-                        "message": 2,
-                        "file": 3,
-                        "location": 4,
-                        "loop": true
-                    }
-                ]
-            }
-        ],
-        "taskDefinitions": [
-            {
-                "type": "testbox",
-                "required": [
-                    "testbox"
-                ],
-                "properties": {
-                    "task": {
-                        "type": "string",
-                        "description": "The task to execute"
-                    }
-                }
-            }
-        ],
-        "testing": {
-            "testExplorer": {}
-        }
-    },
-    "dependencies": {
-        "findup": "^0.1.5",
-        "p-limit": "^6.2.0"
-    },
-    "devDependencies": {
-        "@types/node": "^22.13.5",
-        "@types/vscode": "^1.97.0",
-        "@typescript-eslint/eslint-plugin": "^8.25.0",
-        "@typescript-eslint/parser": "^8.25.0",
-        "@vscode/test-cli": "^0.0.10",
-        "@vscode/test-electron": "^2.4.1",
-        "@vscode/vsce": "^3.2.2",
-        "babel-eslint": "^10.1.0",
-        "eslint": "^9.21.0",
-        "eslint-config-prettier": "^10.0.2",
-        "eslint-plugin-jsdoc": "^50.6.3",
-        "jest": "^29.7.0",
-        "mocha": "^11.1.0",
-        "typescript": "^5.7.3"
-    },
-    "jest": {
-        "moduleNameMapper": {
-            "^vscode$": "<rootDir>/__mocks__/vscode.js"
-        },
-        "testMatch": ["**/test/jest/**/*.test.js"],
-        "testEnvironment": "node",
-        
-        "testPathIgnorePatterns": [
-          "<rootDir>/node_modules/"
-        ],
-        "coveragePathIgnorePatterns": [
-          "<rootDir>/node_modules/"
-        ],
-        "collectCoverageFrom": [
-          "src/**/*.js",
-          "!**/node_modules/**"
-        ]
+  "name": "vscode-testbox",
+  "displayName": "TestBox",
+  "description": "TestBox TDD/BDD Unit Testing Support for Visual Studio Code",
+  "version": "2.0.3",
+  "publisher": "ortus-solutions",
+  "icon": "images/icon.png",
+  "engines": {
+    "vscode": "^1.97.0"
+  },
+  "type": "commonjs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ortus-Solutions/vscode-testbox.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ortus-Solutions/vscode-testbox/issues"
+  },
+  "categories": [
+    "Testing",
+    "Snippets",
+    "Other"
+  ],
+  "keywords": [
+    "CFML",
+    "ColdFusion",
+    "TestBox",
+    "MockBox",
+    "BDD/TDD",
+    "Mocking",
+    "Testing"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./src/extension",
+  "contributes": {
+    "commands": [
+      {
+        "command": "testbox.jumpToSpec",
+        "title": "TestBox: Jump to spec"
       },
-    "scripts": {
-        "vscode:prepublish": "npm version patch --no-git-tag-version && npm run lint",
-        "vscode:publish": "vsce publish",
-        "vscode:package": "vsce package",
-        "lint": "eslint -c .eslintrc.js ./src/**/*.js",
-        "test": "vscode-test --install-extensions ortus-solutions.vscode-boxlang",
-        "pack": "vsce package",
-        "sublime:convert": "bash ./build.sh",
-        "jest": "jest"
+      {
+        "command": "testbox.run-harness",
+        "title": "TestBox: Run Harness"
+      },
+      {
+        "command": "testbox.run-bundle",
+        "title": "TestBox: Run Bundle"
+      },
+      {
+        "command": "testbox.run-spec",
+        "title": "TestBox: Run Spec"
+      },
+      {
+        "command": "testbox.run-previous",
+        "title": "TestBox: Run Previous"
+      }
+    ],
+    "keybindings": [
+      {
+        "key": "cmd+k cmd+r",
+        "command": "testbox.run-harness"
+      },
+      {
+        "key": "cmd+k cmd+s",
+        "command": "testbox.run-spec"
+      },
+      {
+        "key": "cmd+k cmd+f",
+        "command": "testbox.run-bundle",
+        "when": "editorLangId == 'cfml' && editorTextFocus"
+      },
+      {
+        "key": "cmd+k cmd+p",
+        "command": "testbox.run-previous",
+        "when": "editorLangId == 'cfml' && editorTextFocus"
+      },
+      {
+        "key": "shift+cmd+t",
+        "command": "testbox.jumpToSpec",
+        "when": "editorLangId == 'cfml' && editorTextFocus"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "cfml",
+        "path": "./snippets/snippets.json"
+      }
+    ],
+    "configuration": {
+      "title": "TestBox",
+      "properties": {
+        "testbox.boxBinary": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "The CommandBox binary executable. Ex: 'box', '/usr/local/bin/box'"
+        },
+        "testbox.runnerUrl": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Use a specific runner HTTP/s URL instead of discovering it via CommandBox"
+        },
+        "testbox.runnerThreads": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": 10,
+          "description": "The number of parallel requests to use when running tests. Default is 10."
+        },
+        "testbox.labels": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "A list of labels to apply ALWAYS to the runners"
+        },
+        "testbox.excludes": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "A list of labels to EXCLUDE from the runner."
+        },
+        "testbox.bundles": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "The path or list of paths of the spec bundles CFCs to execute.  Do not include the .cfc."
+        },
+        "testbox.directory": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "The directory to use specifically for running your tests. It defaults to whatever is in your 'runner.cfm'"
+        },
+        "testbox.recurse": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null,
+          "description": "Recurse your directory for specs to test or not.  Default is in your 'runner.cfm'"
+        },
+        "testbox.codeCoverage": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null,
+          "description": "Enable or disable code coverage in your runner. Default is in your 'runner.cfm'"
+        },
+        "testbox.harnessSuffix": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Specify command options to appended only to the 'testbox run' command, for example add options like 'outputFormats=json,html labels='' excludes=''. Run 'testbox run ?' for more options."
+        },
+        "testbox.bundleSuffix": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Specify command options to appended only to the 'testbox run bundles={File}' command, for example add options like 'outputFormats=json,html labels='' excludes=''. Run 'testbox run ?' for more options."
+        },
+        "testbox.pathMappings": {
+          "type": "array",
+          "default": [],
+          "description": "Define custom path mappings. Each mapping is an object with a 'source' (the original path) and a 'target' (the new alias). For example, mapping 'unit_tests/tests/specs' to 'tests/specs'. The mappings are relative to the root path of the workspace and enables the package name to be resolved correctly.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string",
+                "description": "The original path to map from."
+              },
+              "target": {
+                "type": "string",
+                "description": "The new alias to map to."
+              }
+            }
+          }
+        },
+        "testbox.excludedPaths": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Glob patterns for files to ignore in the testing view."
+        },
+        "testbox.excludedPackages": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Comma separated list of packages names to exclide from the testing view. e.g [tests.testbox.tests, tests.testbox.mocks]"
+        }
+      }
+    },
+    "problemMatchers": [
+      {
+        "name": "testbox",
+        "owner": "testbox",
+        "fileLocation": "absolute",
+        "severity": "error",
+        "pattern": [
+          {
+            "regexp": "(Error|Failure):(.*)\\n(\\s)*->\\sat\\s(.*):(\\d+)",
+            "severity": 1,
+            "message": 2,
+            "file": 3,
+            "location": 4,
+            "loop": true
+          }
+        ]
+      }
+    ],
+    "taskDefinitions": [
+      {
+        "type": "testbox",
+        "required": [
+          "testbox"
+        ],
+        "properties": {
+          "task": {
+            "type": "string",
+            "description": "The task to execute"
+          }
+        }
+      }
+    ],
+    "testing": {
+      "testExplorer": {}
     }
+  },
+  "dependencies": {
+   
+    "findup": "^0.1.5",
+    "p-limit": "^6.2.0",
+    "p-map": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.5",
+    "@types/vscode": "^1.97.0",
+    "@typescript-eslint/eslint-plugin": "^8.25.0",
+    "@typescript-eslint/parser": "^8.25.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "@vscode/vsce": "^3.2.2",
+    "babel-eslint": "^10.1.0",
+    "eslint": "^9.21.0",
+    "eslint-config-prettier": "^10.0.2",
+    "eslint-plugin-jsdoc": "^50.6.3",
+    "jest": "^29.7.0",
+    "mocha": "^11.1.0",
+    "typescript": "^5.7.3"
+  },
+  "jest": {
+    "moduleNameMapper": {
+      "^vscode$": "<rootDir>/__mocks__/vscode.js"
+    },
+    "testMatch": [
+      "**/test/jest/**/*.test.js"
+    ],
+    "testEnvironment": "node",
+    "testPathIgnorePatterns": [
+      "<rootDir>/node_modules/"
+    ],
+    "coveragePathIgnorePatterns": [
+      "<rootDir>/node_modules/"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!**/node_modules/**"
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm version patch --no-git-tag-version && npm run lint",
+    "vscode:publish": "vsce publish",
+    "vscode:package": "vsce package",
+    "lint": "eslint -c .eslintrc.js ./src/**/*.js",
+    "test": "vscode-test --install-extensions ortus-solutions.vscode-boxlang",
+    "pack": "vsce package",
+    "sublime:convert": "bash ./build.sh",
+    "jest": "jest",
+    "postinstall": "chmod +x ./resources/cftokens/cftokens_* || true"
+  }
 }

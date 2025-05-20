@@ -2,15 +2,9 @@ const vscode = require("vscode");
 const BoxCommand = require("./box-command");
 const { LOG } = require('./utils/logger');
 
-const { createTestingViewController } = require('./views/testingExplorer');
-// const { createTestingViewController } = require('./views/testingExplorer');
+const { createTestingViewController } = require('./views/testExplorer');
 
 let globalCommand = new BoxCommand({ runHarness: true });
-
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
-
-
 
 module.exports.activate = function (context) {
 	// Use the console to output diagnostic information (LOG.info) and errors (console.error)

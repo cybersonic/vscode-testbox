@@ -75,7 +75,6 @@ function updateSpecWithResults(specResult, test, run) {
     }
 }
 
-
 function findSpecsInResults(results, specs) {
 
 
@@ -107,41 +106,42 @@ function findSpecsInResults(results, specs) {
 function getAllSpecsFromTest(test){
     let specs = [];
     const tags = test.tags || [];
-    console.log("tags", tags);
+    // console.log("tags", tags);
     if(tags.includes("spec")){
         specs.push(test);
     }
     const children = test.children.get();
     test.children.forEach(child => {
-        console.log("child", child);
+        // console.log("child", child);
         specs.push(...getAllSpecsFromTest(child));
     });
     
     return specs;
 }
 
-// This might be a bit overkill since we just really want the spec info
-function updateTestWithResults(test, results, run) {
-    if (results.totalError > 0 || results.totalError === -1) {
+// This function updates the test with the results from the test run.
+// IT recieves a spec and updates the the test with the results.
+// It also updates the output window with the results. (Although this should be done in the test result handler)
+function updateTestWithResults(test, resultSpec, run) {
+    const status = resultSpec.status || "";
+    const position = new vscode.Position(test.range.start.line, test.range.start.character); //??
 
-        run.errored(test, "Test Errors occurred", results.totalDuration);
-        const position = new vscode.Position(test.range.start.line, test.range.start.character);
-        run.appendOutput(`Test Errored: ${test.label}\r\n`, position, test);
-    }
-    else if (results.totalFail > 0) {
-        run.failed(test, "Test failed", results.totalDuration);
-        const position = new vscode.Position(test.range.start.line, test.range.start.character);
-        run.appendOutput(`Test failed: ${test.label}\r\n`, position, test);
-    }
-    else if (results.totalSkipped > 0) {
-        run.skipped(test, results.totalDuration);
-        const position = new vscode.Position(test.range.start.line, test.range.start.character);
-        run.appendOutput(`Test Skipped: ${test.label}\r\n`, position, test);
-    }
-    else {
-        run.passed(test, results.totalDuration);
-        const position = new vscode.Position(test.range.start.line, test.range.start.character);
-        run.appendOutput(`Test Passed: ${test.label}\r\n`, position, test);
+    switch (status) {
+        case "Passed":
+            run.passed(test, resultSpec.totalDuration);
+            break;
+        case "Failed":
+            run.failed(test, "Test failed", resultSpec.totalDuration);
+            break;
+        case "Errored":
+            run.errored(test, "Test Errored", resultSpec.totalDuration);
+            break;
+        case "Skipped":
+            run.skipped(test, resultSpec.totalDuration);
+            break;      
+        default:
+            run.errored(test, "Test Errored", resultSpec.totalDuration);
+            break;
     }
     
 }
@@ -229,6 +229,7 @@ class Bundle {
     id = "";
     suites = [];
     parent = null;
+    // bundle = null;
 
     constructor(bundle) {
         this.totalSuites = bundle.totalSuites || 0;
@@ -247,6 +248,7 @@ class Bundle {
         for (let suite of bundle.suiteStats) {
             let suiteObj = new Suite(suite);
             suiteObj.parent = this;
+            // suiteObj.bundle = bundle;
             this.suites.push(suiteObj);
         }
 
@@ -296,12 +298,14 @@ class Suite {
         for (let spec of suite.specStats) {
             let specObj = new Spec(spec);
             specObj.parent = this;
+            specObj.bundle = suite.bundle;
             this.specs.push(specObj);
         }
 
         for (let subsuite of suite.suiteStats) {
             let suiteObj = new Suite(subsuite);
             suiteObj.parent = this;
+            suiteObj.bundle = suite.bundle;
             this.suites.push(suiteObj);
         }
 
@@ -354,26 +358,26 @@ class Spec {
 }
 
 
-function matchResultsToTests(testTree, results, run) {
-    if (testTree.tags.includes("bundle")) {
-        const bundleResults = results.bundleStats.find(bundle => bundle.name === testTree.label);
-        if (bundleResults) {
-            testResultHandler(testTree, bundleResults, run);
-            testTree.children.forEach(child => matchResultsToTests(child, bundleResults, run));
-        }
-    } else if (testTree.tags.includes("suite")) {
-        const suiteResults = findSuiteInResults(testTree, results.bundleStats);
-        if (suiteResults) {
-            testResultHandler(testTree, suiteResults, run);
-            testTree.children.forEach(child => matchResultsToTests(child, suiteResults, run));
-        }
-    } else if (testTree.tags.includes("spec")) {
-        const specResults = findSuiteInResults(testTree, results.bundleStats);
-        if (specResults) {
-            testResultHandler(testTree, specResults, run);
-        }
-    }
-}
+// function matchResultsToTests(testTree, results, run) {
+//     if (testTree.tags.includes("bundle")) {
+//         const bundleResults = results.bundleStats.find(bundle => bundle.name === testTree.label);
+//         if (bundleResults) {
+//             testResultHandler(testTree, bundleResults, run);
+//             testTree.children.forEach(child => matchResultsToTests(child, bundleResults, run));
+//         }
+//     } else if (testTree.tags.includes("suite")) {
+//         const suiteResults = findSuiteInResults(testTree, results.bundleStats);
+//         if (suiteResults) {
+//             testResultHandler(testTree, suiteResults, run);
+//             testTree.children.forEach(child => matchResultsToTests(child, suiteResults, run));
+//         }
+//     } else if (testTree.tags.includes("spec")) {
+//         const specResults = findSuiteInResults(testTree, results.bundleStats);
+//         if (specResults) {
+//             testResultHandler(testTree, specResults, run);
+//         }
+//     }
+// }
 
 
 
@@ -446,7 +450,7 @@ function findSpec(suiteName, test) {
 module.exports = {
     testResultHandler,
     findSuiteInResults,
-    matchResultsToTests,
+    // matchResultsToTests,
     parseTestResults,
     getAllSpecsFromTest,
     updateTestWithResults

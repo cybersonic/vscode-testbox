@@ -186,8 +186,36 @@ function extractTitleFromLine(line) {
 
     return '';
 }
+
+/**
+ * This function is used to extract testItems  from a parsed cftokens object.
+ * @param {*} cftokensParsedObject 
+ */
+
+
+function getElementsFromParsed(cftokensParsedObject) {
+    const testItems = [];
+    var toplevel = cftokensParsedObject.elements || [];
+    console.log("Parsed Object: ", toplevel);
+    let linecount = 0;
+    for (item in toplevel) {
+
+        // var testItem = {};
+        // testItem.name = toplevel[i].name;
+        // testItem.title = toplevel[i].title;
+        // testItem.fullLine = toplevel[i].fullLine;
+        // testItem.startOffset = toplevel[i].startOffset;
+        // testItem.endOffset = toplevel[i].endOffset;
+        // testItem.range = toplevel[i].range;
+        // testItem.children = getElementsFromParsed(toplevel[i]);
+        // testItems.push(testItem);
+    }
+    // If the testItem has no children, remove the children property
+    return testItems;
+
+}
 module.exports = {
     parseTestBlocks,
     extractTitleFromLine,
-  
+    getElementsFromParsed
 };
