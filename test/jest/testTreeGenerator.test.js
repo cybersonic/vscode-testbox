@@ -1,9 +1,9 @@
 const { describe, it, expect } = require('@jest/globals');
-const { generateTreeFromFile, generateTreeFromText, TreeBundle } = require('../../src/utils/testTreeGenerator');
+const { generateTreeFromText, TreeBundle } = require('../../src/utils/testTreeGenerator');
 const path = require('path');
 const fs = require('fs');
 
-describe('generateTreeFromFile', () => {
+describe('generateTreeFromText', () => {
 
     const relativePath = "test/app/tests/specs/unit/CalculatorTest.cfc";
 
@@ -41,82 +41,4 @@ describe('generateTreeFromFile', () => {
 
 
     });
-    // it('should return an empty tree when the file is empty', () => {
-    //     const file = { content: '', path: '/path/to/emptyFile.js' };
-    //     const result = generateTreeFromFile(file);
-    //     expect(result).toEqual([]);
-    // });
-
-    // it('should generate a tree structure for a valid file', () => {
-    //     const file = {
-    //         content: `
-    //             describe('Suite 1', () => {
-    //                 it('should do something', () => {});
-    //             });
-    //         `,
-    //         path: '/path/to/testFile.js'
-    //     };
-    //     const result = generateTreeFromFile(file);
-
-    //     expect(result).toEqual([
-    //         {
-    //             name: 'Suite 1',
-    //             children: [
-    //                 {
-    //                     name: 'should do something',
-    //                     children: []
-    //                 }
-    //             ]
-    //         }
-    //     ]);
-    // });
-
-    // it('should handle nested test suites correctly', () => {
-    //     const file = {
-    //         content: `
-    //             describe('Suite 1', () => {
-    //                 describe('Nested Suite', () => {
-    //                     it('should do something', () => {});
-    //                 });
-    //             });
-    //         `,
-    //         path: '/path/to/testFile.js'
-    //     };
-    //     const result = generateTreeFromFile(file);
-
-    //     expect(result).toEqual([
-    //         {
-    //             name: 'Suite 1',
-    //             children: [
-    //                 {
-    //                     name: 'Nested Suite',
-    //                     children: [
-    //                         {
-    //                             name: 'should do something',
-    //                             children: []
-    //                         }
-    //                     ]
-    //                 }
-    //             ]
-    //         }
-    //     ]);
-    // });
-
-    // it('should return an empty array if no test blocks are found', () => {
-    //     const file = {
-    //         content: `
-    //             const someCode = () => {
-    //                 console.log('This is not a test');
-    //             };
-    //         `,
-    //         path: '/path/to/nonTestFile.js'
-    //     };
-    //     const result = generateTreeFromFile(file);
-    //     expect(result).toEqual([]);
-    // });
-
-    // it('should throw an error if the file content is invalid', () => {
-    //     const file = { content: null, path: '/path/to/invalidFile.js' };
-    //     expect(() => generateTreeFromFile(file)).toThrow('Invalid file content');
-    // });
 });

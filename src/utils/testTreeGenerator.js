@@ -10,6 +10,7 @@ class TreeBundle {
     runnerUrl = "";
     packageName = "";
     children = [];
+    childrenLoaded= false;
 
     constructor(filePath, packageName, runnerUrl, root) {
         this.path = filePath;
@@ -22,7 +23,9 @@ class TreeBundle {
         this.bundle = this;
         this.range = { start: { line: 1, column: 0 }, end: { line: 1, column: 0 } }
 
-
+        if(root){
+            this.childrenLoaded = true;
+        }
         for (var item of root) {
 
 
@@ -127,12 +130,12 @@ class TreeSuite {
         this.id = parent.id + "_suite_" + this.title;
         this.url = this.getJSONReporterURL();
 
-        for (var block of block.children) {
-            if (validSpecs.includes(block.type)) {
-                this.children.push(new TreeSpec(block, bundle, this));
+        for (var blockItem of block.children) {
+            if (validSpecs.includes(blockItem.type)) {
+                this.children.push(new TreeSpec(blockItem, bundle, this));
             }
-            else if (validSuites.includes(block.type)) {
-                this.children.push(new TreeSuite(block, bundle, this));
+            else if (validSuites.includes(blockItem.type)) {
+                this.children.push(new TreeSuite(blockItem, bundle, this));
             }
 
 
@@ -235,9 +238,6 @@ class TreeSpec {
     }
 }
 
-// The file will be a vscode obejct
-function generateTreeFromFile(file, baseURL) {
-}
 
 
 async function generateTreeFromText(text, filePath, packageName, baseURL) {
@@ -248,4 +248,4 @@ async function generateTreeFromText(text, filePath, packageName, baseURL) {
     return treeRoot;
 }
 
-module.exports = { generateTreeFromFile, generateTreeFromText, TreeBundle, TreeSuite, TreeSpec };
+module.exports = {generateTreeFromText, TreeBundle, TreeSuite, TreeSpec };

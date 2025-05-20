@@ -1,3 +1,4 @@
+/* eslint-disable no-prototype-builtins */
 const vscode = require("vscode");
 
 function testResultHandler(test, results, run) {
@@ -36,7 +37,7 @@ function updateSpecWithResults(specResult, test, run) {
         // IF we have a spec, it is in error. 
         // Todo. Figure out if the position is correct
         let position = new vscode.Position(test.range.start.line, test.range.start.character);
-        let message = "";
+        let errorMessage = "";
         if (specResult.totalError === -1) {
             run.failed(test, "Test Failed", specResult.totalDuration);
             return;
@@ -110,7 +111,7 @@ function getAllSpecsFromTest(test){
     if(tags.includes("spec")){
         specs.push(test);
     }
-    const children = test.children.get();
+    // const children = test.children.get();
     test.children.forEach(child => {
         // console.log("child", child);
         specs.push(...getAllSpecsFromTest(child));
@@ -124,7 +125,7 @@ function getAllSpecsFromTest(test){
 // It also updates the output window with the results. (Although this should be done in the test result handler)
 function updateTestWithResults(test, resultSpec, run) {
     const status = resultSpec.status || "";
-    const position = new vscode.Position(test.range.start.line, test.range.start.character); //??
+    // const position = new vscode.Position(test.range.start.line, test.range.start.character); //??
 
     switch (status) {
         case "Passed":
@@ -378,74 +379,6 @@ class Spec {
 //         }
 //     }
 // }
-
-
-
-
-
-
-
-
-
-
-// This function creates a new array with all the test resutts and the relevant tests, so we can then loop through it and update the tests with the results.
-function createTestResultArray(test, results) {
-    let tree = []
-    let test_and_results = {
-        test: test,
-        results: results,
-        type: "type"
-    }
-}
-
-//  I go looking in the test results for the bundle, suite and spec stats. I then update the test with the results. I'm not sure if this is the best way to do it but it's a start. I'm not sure if I should be updating the test with the results or if I should be updating the test with the results and then
-function findBundle(bundleName, test) {
-    // console.log("comparing", bundleName, test.label);
-
-    if (test.tags.includes("bundle") && test.label === bundleName) {
-        return test;
-    }
-    return null;
-}
-
-// This will have to be recursive as I assume a suite can have suites
-function findSuite(suiteName, test) {
-
-    const tags = test.tags || [];
-    if (tags.includes("suite") && suiteName === test.label) {
-        return test;
-    }
-
-    if (test.children) {
-        for (let child of test.children) {
-            // console.log("suiteChild", child);
-            // console.log("suiteChild test", child[1]);
-            // For some reason it's a two part array in the children?
-            const found = findSuite(suiteName, child[1]);
-            if (found) {
-                return found;
-            }
-        }
-    }
-    return null;
-}
-function findSpec(suiteName, test) {
-    const tags = test.tags || [];
-    // First encounter of a spec
-    if (tags.includes("spec") && suiteName === test.label) {
-        return test;
-    }
-    if (test.children) {
-        for (let child of test.children) {
-
-            const found = findSpec(suiteName, child[1]);
-            if (found) {
-                return found;
-            }
-        }
-    }
-    return null;
-}
 
 module.exports = {
     testResultHandler,

@@ -23,6 +23,7 @@ function getCFTokensBinaryPath(override_platform, override_arch) {
   } else if (platform === "linux") {
     // Attempt musl first for broader compatibility, fallback to glibc
     const musl = path.join(
+      // eslint-disable-next-line no-undef
       __dirname,
       "..",
       "resources",
@@ -36,6 +37,7 @@ function getCFTokensBinaryPath(override_platform, override_arch) {
   }
 
   const fullPath = path.join(
+    // eslint-disable-next-line no-undef
     __dirname,
     "..",
     "..",

@@ -81,48 +81,6 @@ function getTestsFromText(content) {
     child.stdin.end();
   });
 }
-
-// const isBlockStart = ctx => ctx.includes("punctuation.section.block.begin.cfml");
-// const isBlockEnd = ctx => ctx.includes("punctuation.section.block.end.cfml");
-
-// function parseBlocks(tokens){
-
-//   const root = [];
-//   const scopeStack = [];
-//   const functionKeywords = new Set([
-//     "describe", "xdescribe",
-//     "it", "xit",
-//     "given", "xgiven",
-//     "when", "xwhen",
-//     "then", "xthen",
-//     "feature", "xfeature",
-//     "scenario", "xscenario",
-//     "story", "xstory"
-//   ]);
-
-//   let currentBlock = {};
-//   let context
-//   for(let i = 0; i < tokens.length; i++) {
-//     const [text, context] = tokens[i];
-    
-//     if (functionKeywords.has(text)) {
-
-//       const title = lookAheadForTitle(tokens, i);
-//       const type = text;
-//       const blockStartIndex = 0;
-      
-
-//       console.log({type}, {title});
-//       // tokens[i][0] = title;
-//       // tokens[i][1] = context;
-
-//       // console.log()
-//     }
-//   }
-
-//   return root;
-// }
-
 /**
  * Parses a list of tokens and constructs a hierarchical representation of test functions
  * and their associated metadata, such as type, title, line numbers, and range.
@@ -156,7 +114,6 @@ function parseTestTokens(tokens) {
   ]);
 
   const isComment = ctx => ctx.some(c => c.includes("comment"));
-  const isDoubleQuotedString = ctx => ctx.includes("string.quoted.double.cfml") || ctx.includes("string.quoted.single.cfml");
   const isBlockStart = ctx => ctx.includes("punctuation.section.block.begin.cfml");
   const isBlockEnd = ctx => ctx.includes("punctuation.section.block.end.cfml");
 
@@ -219,19 +176,22 @@ function parseTestTokens(tokens) {
       i++;
       continue;
     }
-
+    let skipped = false;
     if (functionKeywords.has(text)) {
       const fnType = text;
       const startLine = tokenStartLine;
       const startColumn = tokenStartColumn;
       const startOffset = tokenOffset;
 
+      if(text.startsWith("x")) {
+          skipped = true;
+      }
       // Look ahead to collect title
       const title = lookAheadForTitle(tokens, i ).trim();
       // const title = titleParts.join("").trim();
-      let j = i + 1;
-      let titleStarted = false;
-      let titleParts = [];
+      // let j = i + 1;
+      // let titleStarted = false;
+      // let titleParts = [];
 
       // This is the oild function but seeing why J is needed
       // while (j < tokens.length) {
@@ -278,6 +238,7 @@ function parseTestTokens(tokens) {
         endLine: null,
         endOffset: null,
         children: [],
+        skipped: skipped,
         range: {
           start: { line: startLine, column: startColumn },
           end: null // will be filled in when block ends
@@ -307,13 +268,13 @@ function parseTestTokens(tokens) {
 function lookAheadForTitle(tokens, startIndex, maxsearch=100) {
   let title = '';
   let i = startIndex;
-  let inFunctionCallParams = true;
+  // let inFunctionCallParams = true;
   let inString = false;
   const maxLength = Math.min(tokens.length, startIndex + maxsearch);
   for(i = startIndex; i < maxLength; i++) {
     
     const [text, context] = tokens[i];
-    inFunctionCallParams = context.includes("meta.function-call.parameters.cfml");
+    // inFunctionCallParams = context.includes("meta.function-call.parameters.cfml");
     if(context.includes("punctuation.definition.string.begin.cfml")) {
       inString = true;
     }

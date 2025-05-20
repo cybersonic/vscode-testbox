@@ -22,7 +22,7 @@ function drawTable(header=[], data=[], newline="\r\n", maxWidth=10) {
 
         const columns = header.length;
         const bar = DOUBLE_LINE.horizontal.repeat(maxWidth);
-        const vert = DOUBLE_LINE.vertical;
+        // const vert = DOUBLE_LINE.vertical;
         const linearr = new Array(columns).fill(bar);
 
         const top_horiz = linearr.join(DOUBLE_LINE.topT);
@@ -47,7 +47,7 @@ function drawTable(header=[], data=[], newline="\r\n", maxWidth=10) {
 
 
         const headerRow = header.map(item => (" " + item).padEnd(10)).join(DOUBLE_LINE.vertical);
-        const rowlines = DOUBLE_LINE.horizontal.repeat(headerRow.length);
+        // const rowlines = DOUBLE_LINE.horizontal.repeat(headerRow.length);
 
         
         const dataRow = data.map(item => (" " + item).padEnd(10)).join(DOUBLE_LINE.vertical);

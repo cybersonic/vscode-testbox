@@ -95,7 +95,7 @@ function parseTestBlocks(text, startIndex = 0, stopIndex = text.length, parentSk
         if (openBracePos === -1 || openBracePos >= stopIndex) {
             absEndOffset = globalStartOffset + match[0].length;
         } else {
-            const { content, endPos: blockEndPos } = parseBlockContent(text, openBracePos);
+            const { endPos: blockEndPos } = parseBlockContent(text, openBracePos);
             absEndOffset = blockEndPos;
 
             // 🔁 Recurse with skip status inherited
@@ -197,8 +197,8 @@ function getElementsFromParsed(cftokensParsedObject) {
     const testItems = [];
     var toplevel = cftokensParsedObject.elements || [];
     console.log("Parsed Object: ", toplevel);
-    let linecount = 0;
-    for (item in toplevel) {
+    // let linecount = 0;
+    // for (item in toplevel) {
 
         // var testItem = {};
         // testItem.name = toplevel[i].name;
@@ -209,7 +209,7 @@ function getElementsFromParsed(cftokensParsedObject) {
         // testItem.range = toplevel[i].range;
         // testItem.children = getElementsFromParsed(toplevel[i]);
         // testItems.push(testItem);
-    }
+    // }
     // If the testItem has no children, remove the children property
     return testItems;
 

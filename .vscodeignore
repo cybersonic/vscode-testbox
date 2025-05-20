@@ -5,7 +5,8 @@
 .vscode-test/**
 .gitignore
 **/.gitignore
-
+__mocks__/
+coverage/
 # Support Files
 .markdownlintrc
 tsconfig.json

@@ -1,12 +1,13 @@
+/* eslint-disable no-prototype-builtins */
 
 const vscode = require("vscode");
 // const { parseTestBlocks } = require('../utils/bddParser');
-const { getTestsFromText } = require('../utils/cftokensParser');
-const {generateTreeFromText, TreeBundle, TreeSuite, TreeSpec} = require('../utils/testTreeGenerator');
-const { testResultHandler, parseTestResults, getAllSpecsFromTest, updateTestWithResults } = require("../utils/resultParser");
+// const { getTestsFromText } = require('../utils/cftokensParser');
+const {generateTreeFromText, TreeSuite, TreeSpec} = require('../utils/testTreeGenerator');
+const { parseTestResults, getAllSpecsFromTest, updateTestWithResults } = require("../utils/resultParser");
 const { LOG } = require("../utils/logger");
 const pMap = require("p-map").default;
-const fs = require("fs");
+// const fs = require("fs");
 const {drawTable} = require("../utils/table");
 
 const testFileGlob = '**/*{Spec,Test,Tests}.cfc'; //<-- should be configurable
@@ -35,9 +36,9 @@ class TestBundle {
         this.runnerUrl = runnerUrl;
         // this.block = block || [];
 
-        for(var block of block) {
+        for(var blockitem of block) {
            this.children.push(
-            new TestSuite(block, this, this)
+            new TestSuite(blockitem, this, this)
            )
         }
 
@@ -97,12 +98,12 @@ class TestSuite {
         this.bundle = bundle;
         this.parent = parent;
       
-        for(var block of block.children) {
-            if(["it","xit"].includes(block.name)) {
-                this.children.push(new TestSpec(block, bundle, this));
+        for(var blockitem of block.children) {
+            if(["it","xit"].includes(blockitem.name)) {
+                this.children.push(new TestSpec(blockitem, bundle, this));
             }
             else {
-                this.children.push(new TestSuite(block, bundle, this));
+                this.children.push(new TestSuite(blockitem, bundle, this));
             }
            
         }
@@ -114,7 +115,7 @@ class TestSuite {
     }
     getJSONReporterURL() {
 
-        const bundleName = this.bundle.name;
+        // const bundleName = this.bundle.name;
         const dirName = this.bundle.directory;
         return `${this.bundle.runnerUrl}?reporter=JSON&recurse=false&directory=${dirName}&testSuite=${encodeURIComponent(this.title)}`;
     }
@@ -196,32 +197,36 @@ function createTestingViewController() {
     //     runTestsViaURL(request, token, controller);
     // });
 
-    controller.createRunProfile("Open Test URL",
-        vscode.TestRunProfileKind.Debug,
-        (request, token) => {
-            for (const test of request.include ?? []) {
-                const testMeta = testData.get(test);
-                const url = testMeta.simpleURL;
-                if (url) vscode.env.openExternal(vscode.Uri.parse(url));
-            }
-        }
-    );
+    // controller.createRunProfile("Open Test URL",
+    //     vscode.TestRunProfileKind.Debug,
+    //     (request) => {
+    //         for (const test of request.include ?? []) {
+    //             const testMeta = testData.get(test);
+    //             const url = testMeta.simpleURL;
+    //             if (url) vscode.env.openExternal(vscode.Uri.parse(url));
+    //         }
+    //     }
+    // );
 
     const watcher = vscode.workspace.createFileSystemWatcher(testFileGlob);
 
     watcher.onDidCreate(file => {
+        console.log("File created", file);
         discoverTests(controller)
     });
     watcher.onDidChange(file => {
         discoverTests(controller, [file])
     });
     watcher.onDidDelete(file => {
+        console.log("File deleted", file);
         discoverTests(controller)
     });
 
 
     const settingsWatcher = vscode.workspace.onDidChangeConfiguration(e => {
-        discoverTests(controller);
+        if (e.affectsConfiguration("testbox")) {
+            discoverTests(controller);
+        }
     })
 
     // Populate the controller with on creation
@@ -245,6 +250,7 @@ async function discoverTests(controller, selectedFiles) {
     // TODO: manage if we are changing a single item. This can cause the tree to blow up.
     // Clear out previous items
      controller.items.replace([]);
+     console.log("TODO, clear out only selected items" , selectedFiles)
     // if(selectedFiles) { 
     //     for(const selectedFile of selectedFiles) {
     //         controller.items.forEach(item => {
@@ -261,20 +267,22 @@ async function discoverTests(controller, selectedFiles) {
     // }
     let runnerUrl = vscode.workspace.getConfiguration("testbox").get("runnerUrl");
     let bundles = vscode.workspace.getConfiguration("testbox").get("bundles"); //??
-
+    console.log("Bundles arent used", bundles);
     const excludedPaths = vscode.workspace.getConfiguration("testbox").get("excludedPaths");
     const excludedPackagesConfig = vscode.workspace.getConfiguration("testbox").get("excludedPackages", "") || "";
     const excludedPackagesArray = excludedPackagesConfig.split(",").map(pkg => pkg.trim()).filter(pkg => pkg !== "");
 
-
     // Files are at the top of the test tree, so a bundle == file == a top root item. WE can create sub children etc. but those are at the top 
-    const files = selectedFiles || await vscode.workspace.findFiles(testFileGlob, excludedPaths);
+    // const files = selectedFiles || await vscode.workspace.findFiles(testFileGlob, excludedPaths);
+    const files = await vscode.workspace.findFiles(testFileGlob, excludedPaths);
+
+    const resolveChildren = false;
+
     foundfiles: for (const file of files) {
         const absolutePath = applyPathMappings(vscode.workspace.asRelativePath(file.fsPath));
         const packageName = convertToDottedPackageName(absolutePath);
        
-
-        // // Check if they are excluded
+        // Check if the package is excluded
         for (const expackage of excludedPackagesArray) {
             if (packageName.startsWith(expackage)) {
                 LOG.debug(`Skipping ${packageName} as it is in the excluded packages`);
@@ -282,29 +290,50 @@ async function discoverTests(controller, selectedFiles) {
             }
         }
 
-        const content = await vscode.workspace.openTextDocument(file);
-        const tree = await generateTreeFromText(content.getText(), absolutePath, packageName, runnerUrl);
 
         
+        // ID == "bundle_" + packageName;
+        
         // Create thee tree root. 
-        const root = controller.createTestItem(tree.id, tree.packageName, file);
+        const root = controller.createTestItem( "bundle_" + packageName, packageName, file);
         root.description = `Bundle`;
         root.tags = ["bundle"];
         root.canResolveChildren = false;
-        root.range = new vscode.Range(0, 0, content.lineCount - 1, 0);
+        root.range = new vscode.Range(0, 0, 0, 0);
         // The canResolveChildren is set to false so we can add the children manually. This means that we can add results to the children if they are not expanded. 
-        // 
-        root.canResolveChildren = false;
+        root.canResolveChildren = resolveChildren;
+
+        // This wouldnt be runtime. I am adding here to see about speeding up the process
+        if(!root.canResolveChildren){
+            const content = await vscode.workspace.openTextDocument(file);
+            const tree = await generateTreeFromText(content.getText(), absolutePath, packageName, runnerUrl);
+            createTestTree(tree, root, controller);
+            testData.set(root, tree);
+        }
+        else {
+
+
+
+            root.resolveHandler = async (item) => {
+                // Only resolve if children are not already loaded
+                if (item.children.size > 0) return;
+
+                const tree = testData.get(item);
+                if (!tree || !tree.children) return;
+
+                createTestTree(tree, item, controller);
+            };
+
+        }
+       
 
         // Lookups
         fileTestItems.set(file, root);
-        testData.set(root, tree);
-
         controller.items.add(root);
-
-
-        createTestTree(tree, root, controller, 1, 1);
+        // createTestTree(tree, root, controller, 1, 1);
         // //Create  and parse the test Item
+
+        
 
     
     }
@@ -351,7 +380,7 @@ function createTestTree(treeitem, viewRoot, controller) {
 function runHandler(request, cancellation, controller) {
 
     if (!request.continuous) {
-        return startTestRunViaURL(request, controller);
+        return startTestRunViaURL(request, controller, cancellation);
     }
     else {
         console.error("Continuous run not implemented");
@@ -373,7 +402,7 @@ function runHandler(request, cancellation, controller) {
  * @param {vscode.TestController} controller - The test controller.
  * @returns {Promise<void>} A promise that resolves when the tests have been run.
  */
-async function startTestRunViaURL(request, controller) {
+async function startTestRunViaURL(request, controller, cancellation) {
 
     const runnerUrl = vscode.workspace.getConfiguration("testbox").get("runnerUrl", null);
     if (!runnerUrl) {
@@ -404,48 +433,26 @@ async function startTestRunViaURL(request, controller) {
     
 
 
+    console.log("Going to run the following tests", testqueue);
 
     // const testRuns = (testqueue ?? {}).map(
     //     test => runIndividualTest(test, request, run)
     // );
     const mapper = async (test) => {
-        return await runIndividualTest(test, request, run);
+        return await runIndividualTest(test, request, run, cancellation);
     }
-    const result = await pMap(testqueue, mapper, {concurrency: 2});
-
-
-
+    await pMap(testqueue, mapper, {concurrency: threads});
     run.end();
   
 }
 
-// TODO: remove
-function limitConcurrency(concurrency) {
-    const queue = [];
-    let activeCount = 0;
-
-    const next = () => {
-        if (queue.length === 0 || activeCount >= concurrency) return;
-        const fn = queue.shift();
-        activeCount++;
-        fn().finally(() => {
-            activeCount--;
-            next();
-        });
-    };
-
-    return fn => new Promise(resolve => {
-        queue.push(() => fn().then(resolve));
-        next();
-    });
-}
-
+// DISPLAY TERMINAL STUFF
 const BOLD = "\x1b[1m";
 const RED = "\x1b[31m";
 const GREEN = "\x1b[32m";
-const YELLOW = "\x1b[33m";
-const MAGENTA = "\x1b[35m";
-const CYAN = "\x1b[36m";
+// const YELLOW = "\x1b[33m";
+// const MAGENTA = "\x1b[35m";
+// const CYAN = "\x1b[36m";
 const BLUE = "\x1b[34m";
 
 const RESET = "\x1b[0m";
@@ -453,6 +460,7 @@ const prefix = {
     "Passed": `${GREEN}√ `,
     "Failed": `${RED}X `,
     "Errored": `${RED}!! `,
+    "Error": `${RED}!! `,
     "Skipped": `${BLUE}- `,
 }
 const nl = "\r\n";
@@ -481,6 +489,9 @@ function renderResult(results, run) {
     if(results.totalFail != 0 || results.totalError != 0) {
         tableColor = RED;
     }
+    else if (results.totalSkipped != 0 && results.totalPass == 0) {
+        tableColor = BLUE;
+    }
 
     run.appendOutput(BOLD + tableColor + tableOut + nl + RESET);
 
@@ -489,7 +500,7 @@ function renderResult(results, run) {
         renderBundle(bundle, run);
     }
       
-    const tabs = tab.repeat(2);
+    // const tabs = tab.repeat(2);
     
     let labels = (results.labels || []).join(", ");
     if(labels.length == 0) {
@@ -505,7 +516,7 @@ function renderResult(results, run) {
     // Duration        21ms
     // Labels          ---
 
-    run.appendOutput(`${prefix.Passed}Passed${RESET}  ${prefix.Skipped}Skipped${RESET}  ${prefix.Errored}Exception/Error${RESET}  ${prefix.Failed}Failure${RESET}`);// 
+    run.appendOutput(`${prefix.Passed}Passed${RESET}  ${prefix.Skipped}Skipped${RESET}  ${prefix.Error}Exception/Error${RESET}  ${prefix.Failed}Failure${RESET}`);// 
     run.appendOutput(nl);
     // run.appendOutput(`FINISHED OUTPUT \r\n`);
 }
@@ -532,7 +543,7 @@ function renderBundle(bundle, run) {
         return;
     }
     run.appendOutput(`${BOLD}${titlePrefix}${bundle.name} (${totalDuration} ms)${nl}`);
-    run.appendOutput(`[Passed: ${bundle.totalPass}] [Failed: ${bundle.totalFail}] [Errors: ${bundle.totalError}] [Skipped: ${bundle.totalSkipped}] [Suites/Specs: ${bundle.totalSuites}/${bundle.totalSpecs}]${nl}`);
+    run.appendOutput(`[Passed: ${totalPass}] [Failed: ${totalFail}] [Errors: ${totalError}] [Skipped: ${totalSkipped}] [Suites/Specs: ${bundle.totalSuites}/${bundle.totalSpecs}]${nl}`);
     run.appendOutput(`${RESET}`);
     run.appendOutput(nl);
     bundle.suiteStats = bundle.suiteStats || [];
@@ -572,13 +583,18 @@ function renderBundleOrSuiteResult(bunbdleOrSpec, run, tablevel = 0) {
 
 }
 
-async function runIndividualTest(test, request, run) {
+async function runIndividualTest(test, request, run, cancellation) {
     
     const testMeta = testData.get(test);
     const urlToRun = testMeta.url;
     const start = Date.now();
     run.started(test);
     
+    if(cancellation.isCancellationRequested) {
+        run.appendOutput(`\t🚨  Test cancelled [${test.id}]\r\n`)
+        run.errored(test, `Test cancelled [${test.id}]`);
+        return;
+    }
 
     const message = `Executing tests ${urlToRun} \r\nPlease wait...\r\n`;
     run.appendOutput(`${BOLD}${GREEN}${message}${RESET}`);
@@ -595,7 +611,7 @@ async function runIndividualTest(test, request, run) {
                 return;
         }
 
-        const testMeta = testData.get(test);
+        // const testMeta = testData.get(test);
 
         const results = await response.json();
         const testResults = parseTestResults(results);
@@ -611,8 +627,11 @@ async function runIndividualTest(test, request, run) {
 
         console.log("Not found results", notFoundResults);
         //Handle the results by trying to find the bundle and looking up and setting the results
+        //if we didnt get any specResults, we should check if the root was skipped
 
-
+        if(testResults.totalSkipped == testResults.totalSpecs) {
+            run.skipped(test, `All tests skipped [${test.id}]`);
+        }
 
 
 
