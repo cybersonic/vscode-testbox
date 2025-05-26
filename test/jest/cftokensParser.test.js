@@ -1,10 +1,7 @@
-const fs = require('fs');
 const path = require('path');
-const { getTestsFromFile, lookAheadForTitle } = require('../../src/utils/cftokensParser');
-const exp = require('constants');
-const { utils } = require('mocha');
-
-
+const { getTestsFromFile, lookAheadForTitle, getTokensReport} = require('../../src/utils/cftokensParser');
+const {describe, it, expect} = require('@jest/globals');
+const fs = require('fs');
 describe('extractTests', () => {
     const relativePath = "test/app/tests/specs/unit/CalculatorTest.cfc";
     const absolutePath = path.resolve(relativePath);
@@ -302,4 +299,30 @@ describe('extractTests', () => {
         // expect(tests[0].endLine).toBe(10);
         // expect(tests[1].endLine).toBe(20);
     });
+
+
+});
+describe("MXUnit Compatibitlity", () => {
+    const mxUnitRelativePath = "test/app/testbox/tests/specs/MXUnitCompatTest.cfc";
+    const mxUnitAbsolutePath = path.resolve(mxUnitRelativePath);
+    it('should extract test blocks correctly', async () => {
+        const tests = await getTestsFromFile(mxUnitAbsolutePath);
+        
+        expect(tests.length).toBe(35); // Adjust this based on your expected number of test blocks
+        for(let i = 0; i < tests.length; i++){
+            
+            expect( tests[i].title.startsWith("test") ).toBeTruthy();
+        }
+    });
+});
+
+describe("Token Object Report", () => {
+    const relativePath = "test/jest/CalculatorTest_tokens.json";
+    const absolutePath = path.resolve(relativePath);
+    const tokens = fs.readFileSync(absolutePath, "utf-8");
+    it('should extract all the blocks into a report', async () => {
+      const report = await getTokensReport(tokens); 
+      console.log(report);
+    });
+
 });

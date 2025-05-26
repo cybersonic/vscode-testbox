@@ -6,9 +6,14 @@ const vscode = require("vscode");
 const {generateTreeFromText, TreeSuite, TreeSpec} = require('../utils/testTreeGenerator');
 const { parseTestResults, getAllSpecsFromTest, updateTestWithResults } = require("../utils/resultParser");
 const { LOG } = require("../utils/logger");
-const pMap = require("p-map").default;
+// const {pMap} = require("p-map");
+import pMap from 'p-map';
+// import {pMapIterable} from 'p/-map';
 // const fs = require("fs");
 const {drawTable} = require("../utils/table");
+
+const path = require("path");
+const { parseLuceeExecLog, LuceeExectionReport } = require("../utils/luceeExecLogParser");
 
 const testFileGlob = '**/*{Spec,Test,Tests}.cfc'; //<-- should be configurable
 
@@ -50,11 +55,13 @@ class TestBundle {
         const dirName = this.directory;
         return `${this.runnerUrl}?reporter=JSON&recurse=false&directory=${dirName}&bundles=${encodeURIComponent(bundleName)}`;
     }
+
     getSimpleReporterURL() {
-        const runnerUrl = vscode.workspace.getConfiguration("testbox").get("runnerUrl");
+        let runnerUrl = vscode.workspace.getConfiguration("testbox").get("runnerUrl");
         if (!runnerUrl) {
             vscode.window.showErrorMessage("No Testbox Runner URL configured in settings.");
             return;
+            
         }
         const bundleName = this.name;
         const dirName = this.directory;
@@ -73,7 +80,6 @@ class TestBundle {
         return this.name;
     }
 }
-
 class TestSuite {
     // id = "";
     name = "";
@@ -126,7 +132,6 @@ class TestSuite {
         return this.bundle.getTestLabelPath() + ": " + this.title;
     }
 }
-
 class TestSpec {
     id = "";
     title="";
@@ -197,6 +202,10 @@ function createTestingViewController() {
     //     runTestsViaURL(request, token, controller);
     // });
 
+    controller.createRunProfile('Run Coverage', vscode.TestRunProfileKind.Coverage, (request, token) => {
+        return runHandler(request, token, controller, false, true);
+    }, true, undefined, false);
+
     // controller.createRunProfile("Open Test URL",
     //     vscode.TestRunProfileKind.Debug,
     //     (request) => {
@@ -235,6 +244,22 @@ function createTestingViewController() {
     return { controller, watcher, settingsWatcher };
 }
 
+ /**
+  * Get the box.json runner, if not try the value from the configuration
+  **/
+ async function getTestBoxRunnerUrl(){
+    // Look for the box file in the root. 
+    const boxFiles = await vscode.workspace.findFiles("box.json", "", 1);
+    if(boxFiles && boxFiles.length){
+        const boxFileDoc = await vscode.workspace.openTextDocument(boxFiles[0]);
+        const boxFileJSON = JSON.parse(boxFileDoc.getText());
+        return boxFileJSON.testbox?.runner;
+    }
+    // If we dont have it check in the settings
+    return vscode.workspace.getConfiguration("testbox").get("runnerUrl");
+    
+}
+
 /**
  * Discovers test files and adds them to the test controller.
  *
@@ -265,7 +290,14 @@ async function discoverTests(controller, selectedFiles) {
     // else {
     //     controller.items.replace([]);
     // }
-    let runnerUrl = vscode.workspace.getConfiguration("testbox").get("runnerUrl");
+    let runnerUrl = await getTestBoxRunnerUrl();
+    // try and find the runnerURL if it is not defined.
+    if(!runnerUrl){
+        vscode.workspace.showErrorMessage("No Runner URL found in settings of boxfile");
+        return;
+        
+    }
+
     let bundles = vscode.workspace.getConfiguration("testbox").get("bundles"); //??
     console.log("Bundles arent used", bundles);
     const excludedPaths = vscode.workspace.getConfiguration("testbox").get("excludedPaths");
@@ -289,9 +321,6 @@ async function discoverTests(controller, selectedFiles) {
                 continue foundfiles;
             }
         }
-
-
-        
         // ID == "bundle_" + packageName;
         
         // Create thee tree root. 
@@ -377,10 +406,11 @@ function createTestTree(treeitem, viewRoot, controller) {
  * @param {vscode.CancellationToken} cancellation - The cancellation token.
  * 
  */
-function runHandler(request, cancellation, controller) {
+function runHandler(request, cancellation, controller, isDebug = false, isCoverage = false) {
 
+    
     if (!request.continuous) {
-        return startTestRunViaURL(request, controller, cancellation);
+        return startTestRunViaURL(request, controller, cancellation, isDebug, isCoverage);
     }
     else {
         console.error("Continuous run not implemented");
@@ -402,9 +432,9 @@ function runHandler(request, cancellation, controller) {
  * @param {vscode.TestController} controller - The test controller.
  * @returns {Promise<void>} A promise that resolves when the tests have been run.
  */
-async function startTestRunViaURL(request, controller, cancellation) {
+async function startTestRunViaURL(request, controller, cancellation, isDebug = false, isCoverage = false) {
 
-    const runnerUrl = vscode.workspace.getConfiguration("testbox").get("runnerUrl", null);
+    const runnerUrl = await getTestBoxRunnerUrl();
     if (!runnerUrl) {
         vscode.window.showErrorMessage("No Testbox Runner URL configured in settings.");
         return;
@@ -431,6 +461,18 @@ async function startTestRunViaURL(request, controller, cancellation) {
         controller.items.forEach(test => testqueue.push(test));
     }
     
+    // Preload the coverage since I cant be bothered to wait for the results
+    if(isCoverage) {
+        const coverageResults = await getCoverageResults();
+        // @see https://code.visualstudio.com/api/references/vscode-api#StatementCoverage
+        // @see https://code.visualstudio.com/api/extension-guides/testing
+        console.log("Going to get the coverage!", coverageResults);
+
+        test.addCoverage(coverageResults);
+        const coverage = new vscode.FileCoverage();
+
+        run.addCoverage(coverageResults);
+    }
 
 
     console.log("Going to run the following tests", testqueue);
@@ -438,12 +480,38 @@ async function startTestRunViaURL(request, controller, cancellation) {
     // const testRuns = (testqueue ?? {}).map(
     //     test => runIndividualTest(test, request, run)
     // );
-    const mapper = async (test) => {
-        return await runIndividualTest(test, request, run, cancellation);
+const mapper = async (test) => {
+        return await runIndividualTest(test, request, run, cancellation, isDebug, isCoverage);
     }
     await pMap(testqueue, mapper, {concurrency: threads});
+
+   
     run.end();
   
+}
+
+
+async function getCoverageResults() {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    const coverageFolder = vscode.workspace.getConfiguration("testbox").get("coverageRelativePath", null);
+
+    if (!workspaceFolder) {
+        vscode.window.showErrorMessage("No workspace folder found.");
+        return;
+    }
+    if (!coverageFolder) {
+        vscode.window.showErrorMessage("No Testbox Coverage Folder configured in settings.");
+        return;
+    }
+    
+    // Make the path absolute: 
+    const coverageFolderPath = path.join(workspaceFolder.uri.fsPath, coverageFolder);
+    const luceeExectionReport = new LuceeExectionReport(coverageFolderPath);
+
+
+    
+
+    return luceeExectionReport;
 }
 
 // DISPLAY TERMINAL STUFF
@@ -583,10 +651,21 @@ function renderBundleOrSuiteResult(bunbdleOrSpec, run, tablevel = 0) {
 
 }
 
-async function runIndividualTest(test, request, run, cancellation) {
+async function runIndividualTest(test, request, run, cancellation, isDebug = false, isCoverage = false) {
     
     const testMeta = testData.get(test);
-    const urlToRun = testMeta.url;
+    let urlToRun = testMeta.url;
+    if(isCoverage) {
+        // TODO: this is incorrect, we need to make sure we put the right url variables. 
+        urlToRun = urlToRun + "&=coverage=true";
+    }
+
+    if(isDebug) {
+        // Have to somehow start luceedebuig?
+    }
+
+    
+
     const start = Date.now();
     run.started(test);
     
@@ -650,7 +729,12 @@ async function runIndividualTest(test, request, run, cancellation) {
         // Format all the results
         
         // run.passed(test, Date.now() - start);
-        renderResult(results, run)
+        renderResult(results, run);
+
+        
+
+
+
         // run.end();
     }
     catch (error) {
