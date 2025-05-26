@@ -2,7 +2,7 @@ const vscode = require("vscode");
 const BoxCommand = require("./box-command");
 const { LOG } = require('./utils/logger');
 
-const { createTestingViewController } = require('./views/testExplorer');
+const { createTestViewController } = require('./views/TestExplorerView');
 
 let globalCommand = new BoxCommand({ runHarness: true });
 
@@ -64,10 +64,10 @@ module.exports.activate = function (context) {
 	
 	
 	// Add the UI Panel for the TestBox Runner
-	const { controller, watcher, settingsWatcher } = createTestingViewController();
+	const { controller } = createTestViewController();
 	disposables.push(controller);
-	disposables.push(watcher);
-	disposables.push(settingsWatcher);
+	// disposables.push(watcher);
+	// disposables.push(settingsWatcher);
 
 	
 	// Listen for configuration changes

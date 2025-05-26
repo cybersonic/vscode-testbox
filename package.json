@@ -36,7 +36,7 @@
   "main": "./out/extension.js",
   "contributes": {
     "menus": {
-      "testing/item/context":[
+      "testing/item/context": [
         {
           "command": "testbox.open-in-browser"
         }
@@ -283,6 +283,7 @@
     }
   },
   "dependencies": {
+    "cpx": "^1.5.0",
     "findup": "^0.1.5",
     "p-limit": "^6.2.0",
     "p-map": "^7.0.3"

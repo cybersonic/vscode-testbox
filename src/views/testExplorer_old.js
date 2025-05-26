@@ -6,14 +6,14 @@ const vscode = require("vscode");
 const {generateTreeFromText, TreeSuite, TreeSpec} = require('../utils/testTreeGenerator');
 const { parseTestResults, getAllSpecsFromTest, updateTestWithResults } = require("../utils/resultParser");
 const { LOG } = require("../utils/logger");
-// const {pMap} = require("p-map");
-import pMap from 'p-map';
+const {pMap} = require("p-map");
+// import pMap from 'p-map';
 // import {pMapIterable} from 'p/-map';
 // const fs = require("fs");
 const {drawTable} = require("../utils/table");
 
 const path = require("path");
-const { parseLuceeExecLog, LuceeExectionReport } = require("../utils/luceeExecLogParser");
+// const { parseLuceeExecLog, LuceeExectionReport } = require("../utils/luceeExecLogParser");
 
 const testFileGlob = '**/*{Spec,Test,Tests}.cfc'; //<-- should be configurable
 
@@ -468,8 +468,8 @@ async function startTestRunViaURL(request, controller, cancellation, isDebug = f
         // @see https://code.visualstudio.com/api/extension-guides/testing
         console.log("Going to get the coverage!", coverageResults);
 
-        test.addCoverage(coverageResults);
-        const coverage = new vscode.FileCoverage();
+        // test.addCoverage(coverageResults);
+        // const coverage = new vscode.FileCoverage();
 
         run.addCoverage(coverageResults);
     }
@@ -506,12 +506,12 @@ async function getCoverageResults() {
     
     // Make the path absolute: 
     const coverageFolderPath = path.join(workspaceFolder.uri.fsPath, coverageFolder);
-    const luceeExectionReport = new LuceeExectionReport(coverageFolderPath);
+    // const luceeExectionReport = new LuceeExectionReport(coverageFolderPath);
 
 
     
 
-    return luceeExectionReport;
+    return {};
 }
 
 // DISPLAY TERMINAL STUFF
