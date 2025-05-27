@@ -6,10 +6,7 @@ const vscode = require("vscode");
 const {generateTreeFromText, TreeSuite, TreeSpec} = require('../utils/testTreeGenerator');
 const { parseTestResults, getAllSpecsFromTest, updateTestWithResults } = require("../utils/resultParser");
 const { LOG } = require("../utils/logger");
-const {pMap} = require("p-map");
-// import pMap from 'p-map';
-// import {pMapIterable} from 'p/-map';
-// const fs = require("fs");
+const pLimit = require("p-limit");
 const {drawTable} = require("../utils/table");
 
 const path = require("path");
@@ -186,7 +183,7 @@ class TestSpec {
  *   - controller: The created test controller for managing CFML tests.
  *   - watcher: A filesystem watcher that monitors the test files and triggers test discovery on changes.
  */
-function createTestingViewController() {
+function createTestExplorerView() {
     const controller = vscode.tests.createTestController('cfmlTestController', 'CFML Tests');
 
     // controller.resolveHandler = (item) => {
@@ -202,9 +199,9 @@ function createTestingViewController() {
     //     runTestsViaURL(request, token, controller);
     // });
 
-    controller.createRunProfile('Run Coverage', vscode.TestRunProfileKind.Coverage, (request, token) => {
-        return runHandler(request, token, controller, false, true);
-    }, true, undefined, false);
+    // controller.createRunProfile('Run Coverage', vscode.TestRunProfileKind.Coverage, (request, token) => {
+    //     return runHandler(request, token, controller, false, true);
+    // }, true, undefined, false);
 
     // controller.createRunProfile("Open Test URL",
     //     vscode.TestRunProfileKind.Debug,
@@ -463,27 +460,29 @@ async function startTestRunViaURL(request, controller, cancellation, isDebug = f
     
     // Preload the coverage since I cant be bothered to wait for the results
     if(isCoverage) {
-        const coverageResults = await getCoverageResults();
-        // @see https://code.visualstudio.com/api/references/vscode-api#StatementCoverage
-        // @see https://code.visualstudio.com/api/extension-guides/testing
-        console.log("Going to get the coverage!", coverageResults);
+        // const coverageResults = await getCoverageResults();
+        // // @see https://code.visualstudio.com/api/references/vscode-api#StatementCoverage
+        // // @see https://code.visualstudio.com/api/extension-guides/testing
+        // console.log("Going to get the coverage!", coverageResults);
 
-        // test.addCoverage(coverageResults);
-        // const coverage = new vscode.FileCoverage();
+        // // test.addCoverage(coverageResults);
+        // // const coverage = new vscode.FileCoverage();
 
-        run.addCoverage(coverageResults);
+        // run.addCoverage(coverageResults);
     }
 
 
-    console.log("Going to run the following tests", testqueue);
-
+    // console.log("Going to run the following tests", testqueue);
+    const limit = pLimit(threads);
     // const testRuns = (testqueue ?? {}).map(
     //     test => runIndividualTest(test, request, run)
     // );
-const mapper = async (test) => {
-        return await runIndividualTest(test, request, run, cancellation, isDebug, isCoverage);
+    const mapper = (test) => {
+        return limit(() => runIndividualTest(test, request, run, cancellation, isDebug, isCoverage));
     }
-    await pMap(testqueue, mapper, {concurrency: threads});
+
+
+    await Promise.all( mapper );
 
    
     run.end();
@@ -491,6 +490,7 @@ const mapper = async (test) => {
 }
 
 
+// eslint-disable-next-line no-unused-vars
 async function getCoverageResults() {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     const coverageFolder = vscode.workspace.getConfiguration("testbox").get("coverageRelativePath", null);
@@ -505,6 +505,7 @@ async function getCoverageResults() {
     }
     
     // Make the path absolute: 
+    // eslint-disable-next-line no-unused-vars
     const coverageFolderPath = path.join(workspaceFolder.uri.fsPath, coverageFolder);
     // const luceeExectionReport = new LuceeExectionReport(coverageFolderPath);
 
@@ -850,7 +851,7 @@ function convertToDottedPackageName(filePath) {
 }
 
 module.exports = {
-    createTestingViewController,
+    createTestExplorerView,
     iconResults,
     TestBundle,
     TestSuite,

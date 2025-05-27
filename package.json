@@ -2,7 +2,7 @@
   "name": "vscode-testbox",
   "displayName": "TestBox",
   "description": "TestBox TDD/BDD Unit Testing Support for Visual Studio Code",
-  "version": "3.0.2",
+  "version": "3.0.5",
   "publisher": "ortus-solutions",
   "icon": "images/icon.png",
   "engines": {
@@ -33,7 +33,7 @@
   "activationEvents": [
     "onStartupFinished"
   ],
-  "main": "./out/extension.js",
+  "main": "./src/extension.js",
   "contributes": {
     "menus": {
       "testing/item/context": [
@@ -294,7 +294,7 @@
     "@eslint/js": "^9.27.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.15.21",
-    "@types/vscode": "^1.100.0",
+    "@types/vscode": "^1.97.0",
     "@typescript-eslint/eslint-plugin": "^8.25.0",
     "@typescript-eslint/parser": "^8.25.0",
     "@vscode/test-cli": "^0.0.10",

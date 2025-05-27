@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 const { spawn } = require('child_process');
 const { getCFTokensBinaryPath } = require('./cftokensLoader');
 
