@@ -1,4 +1,4 @@
-component extends="BaseTest" {
+component extends="testbox.system.BaseSpec" {
 
 	/*********************************** LIFE CYCLE Methods ***********************************/
 

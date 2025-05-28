@@ -130,6 +130,7 @@ function updateTestWithResults(test, resultSpec, run) {
     switch (status) {
         case "Passed":
             run.passed(test, resultSpec.totalDuration);
+            
             break;
         case "Failed":
             run.failed(test, "Test failed", resultSpec.totalDuration);

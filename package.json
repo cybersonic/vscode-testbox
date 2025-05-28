@@ -98,30 +98,6 @@
     "configuration": {
       "title": "TestBox",
       "properties": {
-        "testbox.coverageRelativePath": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "default": null,
-          "description": "The relatve path to the coverage report.  This is the path to the folder where the coverage report is generated.",
-          "scope": "workspace"
-        },
-        "testbox.coverageFormat": {
-          "type": "string",
-          "default": "lucee",
-          "enum": [
-            "html",
-            "lucee",
-            "sonarcube"
-          ],
-          "enumDescriptions": [
-            "SonarQube coverage report format",
-            "HTML coverage report format",
-            "Lucee-specific coverage format"
-          ],
-          "description": "Select the type of coverage report to use."
-        },
         "testbox.boxBinary": {
           "type": [
             "string",
@@ -186,14 +162,7 @@
           "default": null,
           "description": "Recurse your directory for specs to test or not.  Default is in your 'runner.cfm'"
         },
-        "testbox.codeCoverage": {
-          "type": [
-            "boolean",
-            "null"
-          ],
-          "default": null,
-          "description": "Enable or disable code coverage in your runner. Default is in your 'runner.cfm'"
-        },
+       
         "testbox.harnessSuffix": {
           "type": [
             "string",

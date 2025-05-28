@@ -13,6 +13,8 @@ class TreeBundle {
     childrenLoaded= false;
 
     constructor(filePath, packageName, runnerUrl, root) {
+        
+        this.type = "bundle";
         this.path = filePath;
         this.directory = packageName.split('.').slice(0, -1).join('.');;
         this.packageName = packageName;
@@ -63,28 +65,6 @@ class TreeBundle {
 
         return `${this.runnerUrl}?${qs}`;
     }
-    getSimpleReporterURL() {
-        // const runnerUrl = vscode.workspace.getConfiguration("testbox").get("runnerUrl");
-        // if (!runnerUrl) {
-        //     vscode.window.showErrorMessage("No Testbox Runner URL configured in settings.");
-        //     return;
-        // }
-        // const bundleName = this.name;
-        // const dirName = this.directory;
-        // return `${runnerUrl}?reporter=simple&recurse=false&directory=${dirName}&testBundles=${encodeURIComponent(bundleName)}`;
-    }
-
-    async getText() {
-        // const doc = await vscode.workspace.openTextDocument(this.path);
-        // return doc.getText();
-    }
-
-    //     const testURLSimple = `${runnerUrl}?reporter=simple&recurse=false&directory=${dirName}&testBundles=${encodeURIComponent(bundleName)}`;
-    //     // These are the root items. in theory all would be Specs?
-    //     const testItem = controller.createTestItem(testUrl, bundleName, file);
-    getTestLabelPath() {
-        return this.directory;
-    }
 }
 
 class TreeSuite {
@@ -101,7 +81,8 @@ class TreeSuite {
     children = [];
 
     constructor(block, bundle, parent) {
-
+    
+        this.type = "suite";
 
         this.name = block.type;
         // this.fullLine = block.fullLine;
@@ -182,6 +163,8 @@ class TreeSpec {
     parent = "";
     bundle = "";
     constructor(block, bundle, parent) {
+        
+        this.type = "spec";
         this.name = block.type;
 
         this.title = block.title;
