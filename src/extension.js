@@ -64,7 +64,7 @@ module.exports.activate = function (context) {
 	
 	
 	// Add the UI Panel for the TestBox Runner
-	const { controller } = createTestExplorerView();
+	const { controller } = createTestExplorerView(context);
 	disposables.push(controller);
 	// disposables.push(watcher);
 	// disposables.push(settingsWatcher);

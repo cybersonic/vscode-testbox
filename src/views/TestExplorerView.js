@@ -1,13 +1,8 @@
 const vscode = require("vscode");
-// const { parseTestBlocks } = require('../utils/bddParser');
-// const { getTestsFromText } = require('../utils/cftokensParser');
 const { generateTreeFromText, TreeSuite, TreeSpec } = require('../utils/testTreeGenerator');
 const { parseTestResults, getAllSpecsFromTest, updateTestWithResults } = require("../utils/resultParser");
-const { LOG } = require("../utils/logger");
-const pLimit = require("p-limit").default; // Not sure this will work
 const { renderResult } = require("../utils/resultRenderer");
 const { minimatch } = require("minimatch");
-
 // const { parseLuceeExecLog, LuceeExectionReport } = require("../utils/luceeExecLogParser");
 
 const testFileGlob = '**/*{Spec,Test,Tests}.cfc'; //<-- should be configurable
@@ -169,8 +164,22 @@ class TestSpec {
 }
 
 // This creates the explorer view. A lot of the functions are added within as they need the controller which we keep in the createTestExplorerView scope
-async function createTestExplorerView() {
+async function createTestExplorerView(context) {
+
+    context.subscriptions.push(
+		vscode.commands.registerCommand("testbox.open-in-browser", async (testItem) => {
+			if (testItem) {
+			vscode.window.showInformationMessage(`Custom command triggered for: ${testItem.label}`);
+			    const testMetadata = testData.get(testItem);
+                await vscode.env.openExternal( testMetadata.getSimpleReporterURL() );
+			}
+		})
+	)
+
+
     const controller = vscode.tests.createTestController('cfmlTestController', 'CFML Tests');
+    let excludedPackagesConfig = vscode.workspace.getConfiguration("testbox").get("excludedPackages", "") || "";
+    let excludedPackagesArray = excludedPackagesConfig.split(",").map(pkg => pkg.trim().toLowerCase()).filter(pkg => pkg !== "");
     let testboxRunnerURL = await getTestBoxRunnerUrl();
 
     controller.resolveHandler = async test => {
@@ -190,6 +199,9 @@ async function createTestExplorerView() {
         }
     };
 
+
+    
+
     // Throttle document change events to avoid excessive parsing
     let parseTimeout;
     const throttledParseDocument = (document) => {
@@ -201,10 +213,10 @@ async function createTestExplorerView() {
 
     vscode.workspace.onDidChangeConfiguration(async (e) => {
         if (e.affectsConfiguration("testbox")) {
-            console.time('configChange-discoverAllFilesInWorkspace');
             testboxRunnerURL = await getTestBoxRunnerUrl();
+            excludedPackagesConfig = vscode.workspace.getConfiguration("testbox").get("excludedPackages", "") || "";
+            excludedPackagesArray = excludedPackagesConfig.split(",").map(pkg => pkg.trim().toLowerCase()).filter(pkg => pkg !== "");
             discoverAllFilesInWorkspace();
-            console.timeEnd('configChange-discoverAllFilesInWorkspace');
         }
     });
 
@@ -226,23 +238,16 @@ async function createTestExplorerView() {
             return existing;
         }
 
-        
+
         // Is this file even a test file
         const isTestFile = minimatch(uri.fsPath, testFileGlob, { debug: false, nocase: true });
-        if( !isTestFile ) {
+        if (!isTestFile) {
             // console.log(`Skipping file ${uri.fsPath} as it does not match the test file glob.`);
             return; // Skip this file
         }
-        //TODO: cache this
-        const excludedPackagesConfig = vscode.workspace.getConfiguration("testbox").get("excludedPackages", "") || "";
-        const excludedPackagesArray = excludedPackagesConfig.split(",").map(pkg => pkg.trim().toLowerCase()).filter(pkg => pkg !== "");
-        
         const relativePath = vscode.workspace.asRelativePath(uri)
         const mappedPath = applyPathMappings(relativePath);
         const packageName = convertToDottedPackageName(mappedPath);
-        
-
-
 
         // Should be done in a separate function
         for (const excludedPackage of excludedPackagesArray) {
@@ -256,7 +261,7 @@ async function createTestExplorerView() {
         testItem.description = `Bundle`;
         // testItem.tags = ["bundle"];
         testItem.canResolveChildren = true;
-       
+
         const testBundle = new TestBundle(mappedPath, packageName, testboxRunnerURL, [])
         testData.set(testItem, testBundle);
         controller.items.add(testItem);
@@ -269,9 +274,6 @@ async function createTestExplorerView() {
             parseTestsInFileContents(await getOrCreateFile(document.uri), document.getText());
         }
     }
-
-
-
 
     // file: vscode.TestItem, contents?: string
     async function parseTestsInFileContents(testItem, contents) {
@@ -300,25 +302,16 @@ async function createTestExplorerView() {
                 console.log(`Discovering tests in workspace folder: ${workspaceFolder.name}`);
                 // const pattern = new vscode.RelativePattern(workspaceFolder, testFileGlob);
 
-                
-             
-                console.time('vscode.workspace.findFiles');
                 const allFiles = await vscode.workspace.findFiles(cfcFileGlob, excludedPathsConfig, maxFilesInWorkspace);
-                console.timeEnd('vscode.workspace.findFiles');
 
 
-                console.time(`CreateTreeItems`);
-                
                 for (const file of allFiles) {
-                      console.time(`getOrCreateFile`);
-                      getOrCreateFile(file);
-                      console.timeEnd(`getOrCreateFile`);
+                    getOrCreateFile(file);
                 }
-                console.timeEnd(`CreateTreeItems`);
+
             }) //end  vscode.workspace.workspaceFolders.map(async (folder)
         );
     }
-
 
     // Run the Tests
     controller.createRunProfile(
@@ -328,26 +321,6 @@ async function createTestExplorerView() {
             return runHandler(false, false, request, token);
         },
     );
-
-
-
-
-    // const debugProfile = controller.createRunProfile(
-    //     "Debug",
-    //     vscode.TestRunProfileKind.Debug,
-    //     (request, token) => {
-    //         return runHandler(false, true, request, token);
-    //     },
-    // );
-
-    // const coverageProfile = controller.createRunProfile(
-    //     "Run",
-    //     vscode.TestRunProfileKind.Coverage,
-    //     (request, token) => {
-    //         return runHandler(true, false, request, token);
-    //     },
-    // );
-
 
     /**
      * Handles the execution or debugging of a test run.
@@ -359,22 +332,29 @@ async function createTestExplorerView() {
     async function runHandler(shouldCoverage = false, shouldDebug = false, request, token) {
         const run = controller.createTestRun(request);
         const queue = [];
+        const batchSize = getTotalRunnerThreads();
 
+        // Collect all tests to run
         if (request.include) {
             request.include.forEach(test => queue.push(test));
         } else {
             controller.items.forEach(test => queue.push(test));
         }
+
         const dedupeQueue = filterSelection(queue);
 
-        const threads = getTotalRunnerThreads();
-        const limit = pLimit(threads);
+        // Create batches of tests
+        const batches = [];
+        for (let i = 0; i < dedupeQueue.length; i += batchSize) {
+            batches.push(dedupeQueue.slice(i, i + batchSize));
+        }
 
-        // Prepare an array of limited test runners
-        const testPromises = dedupeQueue.map(test =>
-            limit(async () => {
+        // Run each batch in parallel
+        for (const batch of batches) {
+            if (token.isCancellationRequested) break;
+            console.log(`Running batch of ${batch.length} tests...`);
+            const batchPromises = batch.map(async test => {
                 if (token.isCancellationRequested) return;
-                // Skip tests the user asked to exclude
                 if (request.exclude?.includes(test)) return;
 
                 // If we don't know the children in a bundle, parse them now.
@@ -382,17 +362,47 @@ async function createTestExplorerView() {
                     await parseTestsInFileContents(test);
                 }
 
-                const testMeta = testData.get(test);
-                if (testMeta instanceof TestBundle) {
-                    // We can use the topline results.
-                }
-                await runIndividualTest(test, request, run, token, shouldCoverage, shouldDebug);
-            })
-        );
+                return runIndividualTest(test, request, run, token, shouldCoverage, shouldDebug);
+            });
 
-        // Wait for all tests to finish or cancellation
-        await Promise.all(testPromises);
+            await Promise.all(batchPromises);
+        }
 
+        // if (request.include) {
+        //     request.include.forEach(test => queue.push(test));
+        // } else {
+        //     controller.items.forEach(test => queue.push(test));
+        // }
+        // const dedupeQueue = filterSelection(queue);
+
+        // const threads = getTotalRunnerThreads();
+        // const limit = pLimit(threads);
+        // const runqueue = newQueue(threads);
+
+        // Prepare an array of limited test runners
+        // dedupeQueue.map(async test => {
+        //         if (token.isCancellationRequested) return;
+        //         // Skip tests the user asked to exclude
+        //         if (request.exclude?.includes(test)) return;
+
+        //         // If we don't know the children in a bundle, parse them now.
+        //         if (test.children.size === 0) {
+        //             await parseTestsInFileContents(test);
+        //         }
+
+        //         const testMeta = testData.get(test);
+        //         if (testMeta instanceof TestBundle) {
+        //             // We can use the topline results.
+        //         }
+        //         // runqueue.add(
+        //         //     async () => {
+        //         //         await runIndividualTest(test, request, run, token, shouldCoverage, shouldDebug);
+        //         //     }
+        //         // )
+        //         runqueue.add(runIndividualTest(test, request, run, token, shouldCoverage, shouldDebug));
+        //     }
+        // );
+        // await runqueue.done();
         run.end();
     }
 
@@ -417,8 +427,6 @@ async function createTestExplorerView() {
 
 
     async function runIndividualTest(test, request, run, cancellation, isDebug = false, isCoverage = false) {
-
-        run.appendOutput(`Running test ${test.id}`);
         const start = Date.now();
         run.started(test);
         const testMeta = testData.get(test);
@@ -436,7 +444,7 @@ async function createTestExplorerView() {
         }
         // const runnerType = vscode.workspace.getConfiguration("testbox").get("runnerType", "json");
         try {
-            run.appendOutput(`🧪: ${test.label} [${urlToRun}]\r\n`);
+            run.appendOutput(`🧪 ${test.label} [${urlToRun}]\r\n`);
             const response = await fetch(urlToRun);
             if (!response.ok) {
                 const message = `\t🚨 HTTP error ${response.status} [${urlToRun}]\r\n`;
@@ -469,8 +477,6 @@ async function createTestExplorerView() {
                 run.skipped(test, `All tests skipped [${test.id}]`);
             }
 
-
-
             for (const result of specResults) {
                 for (const test of testSpecs) {
                     const meta = testData.get(test);
@@ -478,91 +484,28 @@ async function createTestExplorerView() {
                         updateTestWithResults(test, result, run);
                         break;
                     }
-
                 }
             }
-            // Format all the results
 
-            // run.passed(test, Date.now() - start);
-            // TODO:
             renderResult(results, run);
 
             // const statement = new vscode.StatementCoverage(true, new vscode.Range(0, 50, 10, 1));
-
             // const fileCoverage = new vscode.FileCoverage(test.uri, [statement]);
-
-            // // new vscode.CoverageResult(test.label, test.uri, [fileCoverage], Date.now() - start);
+            // new vscode.CoverageResult(test.label, test.uri, [fileCoverage], Date.now() - start);
             // run.addCoverage(fileCoverage)
-
-
-            // run.end();
         }
         catch (error) {
-            run.appendOutput(`🧪: ${test.label}\r\n`);
-
+            // run.appendOutput(`🧪: ${test.label}\r\n`);
             const message = `\t🚨  Error [${error.message}] [${urlToRun}]:\r\n`;
             run.errored(test, message);
             vscode.window.showErrorMessage(message);
-
-            // if (error.cause.code && error.cause.code == "ECONNREFUSED") {
-            //     vscode.window.showErrorMessage(`Can't reach RunnerURL [${test.id}]. Connection refused.`);
-            // }
-            // run.end();
             run.appendOutput(message);
-            LOG.error(error.stack);
+            // LOG.error(error.stack);
         }
 
     }
-    // 
 
-    // Create a run profile that runs tests
-    // controller.createRunProfile('Run Tests', vscode.TestRunProfileKind.Run, (request, token) => {
-    //     return runHandler(request, token, controller);
-    // }, true, undefined, false);
-    // controller.createRunProfile('Run Tests', vscode.TestRunProfileKind.Run, (request, token) => {
-    //     runTestsViaURL(request, token, controller);
-    // });
-
-    // controller.createRunProfile('Run Coverage', vscode.TestRunProfileKind.Coverage, (request, token) => {
-    //     return runHandler(request, token, controller, false, true);
-    // }, true, undefined, false);
-
-    // controller.createRunProfile("Open Test URL",
-    //     vscode.TestRunProfileKind.Debug,
-    //     (request) => {
-    //         for (const test of request.include ?? []) {
-    //             const testMeta = testData.get(test);
-    //             const url = testMeta.simpleURL;
-    //             if (url) vscode.env.openExternal(vscode.Uri.parse(url));
-    //         }
-    //     }
-    // );
-
-    // const watcher = vscode.workspace.createFileSystemWatcher(testFileGlob);
-
-    // watcher.onDidCreate(file => {
-    //     console.log("File created", file);
-    //     discoverTests(controller)
-    // });
-    // watcher.onDidChange(file => {
-    //     discoverTests(controller, [file])
-    // });
-    // watcher.onDidDelete(file => {
-    //     console.log("File deleted", file);
-    //     discoverTests(controller)
-    // });
-
-
-    // const settingsWatcher = vscode.workspace.onDidChangeConfiguration(e => {
-    //     if (e.affectsConfiguration("testbox")) {
-    //         discoverTests(controller);
-    //     }
-    // })
-
-    // Populate the controller with on creation
-    // discoverTests(controller);
-
-    return { controller /* , watcher, settingsWatcher */ };
+    return { controller };
 }
 
 /**

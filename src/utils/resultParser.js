@@ -126,7 +126,7 @@ function getAllSpecsFromTest(test){
 function updateTestWithResults(test, resultSpec, run) {
     const status = resultSpec.status || "";
     // const position = new vscode.Position(test.range.start.line, test.range.start.character); //??
-
+    let message = new vscode.TestMessage("Test Result");
     switch (status) {
         case "Passed":
             run.passed(test, resultSpec.totalDuration);
@@ -136,10 +136,18 @@ function updateTestWithResults(test, resultSpec, run) {
             run.failed(test, new vscode.TestMessage(resultSpec.failMessage), resultSpec.totalDuration);
             break;
         case "Errored":
-            run.errored(test, "Test Errored", resultSpec.totalDuration);
+            message = new vscode.TestMessage("Test Errored");
+            if (resultSpec.failMessage) {
+                message = new vscode.TestMessage(resultSpec.failMessage)
+            }
+            run.errored(test, message, resultSpec.totalDuration);
             break;
         case "Error":
-            run.errored(test, "Test Errored", resultSpec.totalDuration);
+             message = new vscode.TestMessage("Test Errored");
+            if (resultSpec.failMessage) {
+                message = new vscode.TestMessage(resultSpec.failMessage)
+            }
+            run.errored(test, message, resultSpec.totalDuration);
             break;
         case "Skipped":
             run.skipped(test, resultSpec.totalDuration);
