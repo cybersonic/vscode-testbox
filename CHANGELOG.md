@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ****
 
 ## [Unreleased]
+## [3.0.8] - 2024-02-29
+Improved the speed of finding tests in the Test Explorer. 
+Added a parser to parse the test files and find the tests in them
+Added a command to TestView to view the selected test in a browser
+
+
 
 ### Added
 

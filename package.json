@@ -2,7 +2,7 @@
   "name": "vscode-testbox",
   "displayName": "TestBox",
   "description": "TestBox TDD/BDD Unit Testing Support for Visual Studio Code",
-  "version": "3.0.7",
+  "version": "3.0.8",
   "publisher": "ortus-solutions",
   "icon": "images/icon.png",
   "engines": {
