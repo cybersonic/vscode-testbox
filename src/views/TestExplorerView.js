@@ -5,11 +5,14 @@ const { generateTreeFromText, TreeSuite, TreeSpec } = require('../utils/testTree
 const { parseTestResults, getAllSpecsFromTest, updateTestWithResults } = require("../utils/resultParser");
 const { LOG } = require("../utils/logger");
 const pLimit = require("p-limit").default; // Not sure this will work
-const {renderResult} = require("../utils/resultRenderer");
+const { renderResult } = require("../utils/resultRenderer");
+const { minimatch } = require("minimatch");
+
 // const { parseLuceeExecLog, LuceeExectionReport } = require("../utils/luceeExecLogParser");
 
 const testFileGlob = '**/*{Spec,Test,Tests}.cfc'; //<-- should be configurable
-
+const languageId = "cfml"; // The language ID for CFML files
+const cfcFileGlob = "**/*.cfc";
 /**
  * See https://code.visualstudio.com/api/extension-guides/testing
  */
@@ -166,61 +169,81 @@ class TestSpec {
 }
 
 // This creates the explorer view. A lot of the functions are added within as they need the controller which we keep in the createTestExplorerView scope
-function createTestExplorerView() {
+async function createTestExplorerView() {
     const controller = vscode.tests.createTestController('cfmlTestController', 'CFML Tests');
+    let testboxRunnerURL = await getTestBoxRunnerUrl();
 
     controller.resolveHandler = async test => {
         // So we could do some kind of lazy loading here. 
         if (!test) {
+            // await discoverAllFilesInWorkspace();
+            // Add performance markers
+            console.time('discoverAllFilesInWorkspace');
             await discoverAllFilesInWorkspace();
-        // Add performance markers
-        console.time('discoverAllFilesInWorkspace');
-        await discoverAllFilesInWorkspace();
-        console.timeEnd('discoverAllFilesInWorkspace');
+            console.timeEnd('discoverAllFilesInWorkspace');
 
-        // For the selection area:
-            } else {
-                console.time(`parseTestsInFileContents-${test.id}`);
-                await parseTestsInFileContents(test);
-                console.timeEnd(`parseTestsInFileContents-${test.id}`);
-            }
-            };
+            // For the selection area:
+        } else {
+            console.time(`parseTestsInFileContents-${test.id}`);
+            await parseTestsInFileContents(test);
+            console.timeEnd(`parseTestsInFileContents-${test.id}`);
+        }
+    };
 
-            // Throttle document change events to avoid excessive parsing
-            let parseTimeout;
-            const throttledParseDocument = (document) => {
-            clearTimeout(parseTimeout);
-            parseTimeout = setTimeout(() => parseTestsInDocument(document), 300);
-            };
+    // Throttle document change events to avoid excessive parsing
+    let parseTimeout;
+    const throttledParseDocument = (document) => {
+        clearTimeout(parseTimeout);
+        parseTimeout = setTimeout(() => parseTestsInDocument(document), 300);
+    };
 
-            vscode.workspace.onDidChangeTextDocument(async e => await throttledParseDocument(e.document));
+    vscode.workspace.onDidChangeTextDocument(async e => await throttledParseDocument(e.document));
 
-            vscode.workspace.onDidChangeConfiguration(e => {
-            if (e.affectsConfiguration("testbox")) {
-                console.time('configChange-discoverAllFilesInWorkspace');
-                discoverAllFilesInWorkspace();
-                console.timeEnd('configChange-discoverAllFilesInWorkspace');
-            }
-            });
+    vscode.workspace.onDidChangeConfiguration(async (e) => {
+        if (e.affectsConfiguration("testbox")) {
+            console.time('configChange-discoverAllFilesInWorkspace');
+            testboxRunnerURL = await getTestBoxRunnerUrl();
+            discoverAllFilesInWorkspace();
+            console.timeEnd('configChange-discoverAllFilesInWorkspace');
+        }
+    });
 
-            async function getOrCreateFile(uri) {
-            const existing = controller.items.get(uri.toString());
-            if (existing) {
-                return existing;
+    //  WATCH FILES FOR CHANGEES
+    const watcher = vscode.workspace.createFileSystemWatcher(testFileGlob, false, false, false);
+    // When a file is created,add it to the tree.
+    watcher.onDidCreate(uri => getOrCreateFile(uri));
+    // When we change it, re-parse the file contents
+    watcher.onDidChange(async uri => {
+        const testTreeItem = await getOrCreateFile(uri);
+        parseTestsInFileContents(testTreeItem);
+    });
+    // When we delete it, remove it from the tree
+    watcher.onDidDelete(uri => controller.items.delete(uri.toString()));
+
+    async function getOrCreateFile(uri) {
+        const existing = controller.items.get(uri.toString());
+        if (existing) {
+            return existing;
         }
 
-        // Exclude examples:
-        // "testbox.excludedPaths": "{sites,slaps,devops,tests/testbox}/**",
-        // "testbox.excludedPackages": "tests.testbox,tests.testcases.BaseDistroKidTest",
-        // const excludedPathsConfig = vscode.workspace.getConfiguration("testbox").get("excludedPaths", "") || "**/**";
+        
+        // Is this file even a test file
+        const isTestFile = minimatch(uri.fsPath, testFileGlob, { debug: false, nocase: true });
+        if( !isTestFile ) {
+            // console.log(`Skipping file ${uri.fsPath} as it does not match the test file glob.`);
+            return; // Skip this file
+        }
+        //TODO: cache this
         const excludedPackagesConfig = vscode.workspace.getConfiguration("testbox").get("excludedPackages", "") || "";
-
         const excludedPackagesArray = excludedPackagesConfig.split(",").map(pkg => pkg.trim().toLowerCase()).filter(pkg => pkg !== "");
-
+        
         const relativePath = vscode.workspace.asRelativePath(uri)
-
         const mappedPath = applyPathMappings(relativePath);
         const packageName = convertToDottedPackageName(mappedPath);
+        
+
+
+
         // Should be done in a separate function
         for (const excludedPackage of excludedPackagesArray) {
             // Set to lowercase to make sure we are not case senssitive
@@ -233,8 +256,8 @@ function createTestExplorerView() {
         testItem.description = `Bundle`;
         // testItem.tags = ["bundle"];
         testItem.canResolveChildren = true;
-        const runnerUrl = await getTestBoxRunnerUrl();
-        const testBundle = new TestBundle(mappedPath, packageName, runnerUrl, [])
+       
+        const testBundle = new TestBundle(mappedPath, packageName, testboxRunnerURL, [])
         testData.set(testItem, testBundle);
         controller.items.add(testItem);
         return testItem;
@@ -242,18 +265,18 @@ function createTestExplorerView() {
     }
 
     async function parseTestsInDocument(document) {
-        if (document.uri.scheme === "file" && document.languageId === "cfml") {
+        if (document.uri.scheme === "file" && document.languageId === languageId) {
             parseTestsInFileContents(await getOrCreateFile(document.uri), document.getText());
         }
     }
 
 
-   
+
 
     // file: vscode.TestItem, contents?: string
     async function parseTestsInFileContents(testItem, contents) {
         // If document is already open, if we are in a resolve handler it might not be open yet and we need to read it from disk
-        if (contents === undefined) {
+        if (contents === undefined && testItem.uri.scheme === "file") {
             const rawContent = await vscode.workspace.fs.readFile(testItem.uri);
             contents = new TextDecoder().decode(rawContent);
         }
@@ -268,28 +291,30 @@ function createTestExplorerView() {
             // if there are no workspace folders, we cannot discover any files
             return [];
         }
+        const excludedPathsConfig = vscode.workspace.getConfiguration("testbox").get("excludedPaths", "") || "";
+        const maxFilesInWorkspace = vscode.workspace.getConfiguration("testbox").get("maxFilesInWorkspace", 5000);
+
         controller.items.replace([]); // Clear out the previous items
         return Promise.all(
             vscode.workspace.workspaceFolders.map(async (workspaceFolder) => {
-                const pattern = new vscode.RelativePattern(workspaceFolder, testFileGlob);
-                const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+                console.log(`Discovering tests in workspace folder: ${workspaceFolder.name}`);
+                // const pattern = new vscode.RelativePattern(workspaceFolder, testFileGlob);
 
-                // When a file is created,add it to the tree.
-                watcher.onDidCreate(uri => getOrCreateFile(uri));
-
-                // When we change it, re-parse the file contents
-                watcher.onDidChange(uri => parseTestsInFileContents(getOrCreateFile(uri)));
-
-                // When we delete it, remove it from the tree
-                watcher.onDidDelete(uri => controller.items.delete(uri.toString()));
                 
-                
+             
                 console.time('vscode.workspace.findFiles');
-                const files = await vscode.workspace.findFiles(pattern, "", 1000);
-                for (const file of files) {
-                    getOrCreateFile(file);
-                }
+                const allFiles = await vscode.workspace.findFiles(cfcFileGlob, excludedPathsConfig, maxFilesInWorkspace);
                 console.timeEnd('vscode.workspace.findFiles');
+
+
+                console.time(`CreateTreeItems`);
+                
+                for (const file of allFiles) {
+                      console.time(`getOrCreateFile`);
+                      getOrCreateFile(file);
+                      console.timeEnd(`getOrCreateFile`);
+                }
+                console.timeEnd(`CreateTreeItems`);
             }) //end  vscode.workspace.workspaceFolders.map(async (folder)
         );
     }
@@ -304,8 +329,8 @@ function createTestExplorerView() {
         },
     );
 
-    
-    
+
+
 
     // const debugProfile = controller.createRunProfile(
     //     "Debug",
@@ -346,7 +371,7 @@ function createTestExplorerView() {
         const limit = pLimit(threads);
 
         // Prepare an array of limited test runners
-        const testPromises = dedupeQueue.map(test => 
+        const testPromises = dedupeQueue.map(test =>
             limit(async () => {
                 if (token.isCancellationRequested) return;
                 // Skip tests the user asked to exclude
@@ -358,7 +383,6 @@ function createTestExplorerView() {
                 }
 
                 const testMeta = testData.get(test);
-                console.log({ testMeta });
                 if (testMeta instanceof TestBundle) {
                     // We can use the topline results.
                 }
@@ -391,7 +415,7 @@ function createTestExplorerView() {
         return selectedItems.filter(item => !hasSelectedAncestor(item, selectedSet));
     }
 
-    
+
     async function runIndividualTest(test, request, run, cancellation, isDebug = false, isCoverage = false) {
 
         run.appendOutput(`Running test ${test.id}`);
@@ -454,7 +478,7 @@ function createTestExplorerView() {
                         updateTestWithResults(test, result, run);
                         break;
                     }
-                    
+
                 }
             }
             // Format all the results
@@ -541,12 +565,6 @@ function createTestExplorerView() {
     return { controller /* , watcher, settingsWatcher */ };
 }
 
-
-
-
-
-
-
 /**
  * Get the box.json runner, if not try the value from the configuration
  **/
@@ -557,12 +575,12 @@ async function getTestBoxRunnerUrl() {
         // Dont have to actually open the file to emit it 
         const boxFileDoc = await vscode.workspace.fs.readFile(boxFiles[0]);
         const boxFileJSON = JSON.parse(boxFileDoc);
-        if(boxFileJSON.testbox && boxFileJSON.testbox.runner) {
+        if (boxFileJSON.testbox && boxFileJSON.testbox.runner) {
             return boxFileJSON.testbox?.runner;
         }
     }
     // If we dont have it check in the settings
-    return await vscode.workspace.getConfiguration("testbox").get("runnerUrl");
+    return vscode.workspace.getConfiguration("testbox").get("runnerUrl");
 
 }
 

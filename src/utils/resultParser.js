@@ -133,16 +133,19 @@ function updateTestWithResults(test, resultSpec, run) {
             
             break;
         case "Failed":
-            run.failed(test, "Test failed", resultSpec.totalDuration);
+            run.failed(test, new vscode.TestMessage(resultSpec.failMessage), resultSpec.totalDuration);
             break;
         case "Errored":
+            run.errored(test, "Test Errored", resultSpec.totalDuration);
+            break;
+        case "Error":
             run.errored(test, "Test Errored", resultSpec.totalDuration);
             break;
         case "Skipped":
             run.skipped(test, resultSpec.totalDuration);
             break;      
         default:
-            run.errored(test, "Test Errored", resultSpec.totalDuration);
+            run.errored(test, new vscode.TestMessage(resultSpec.failMessage), resultSpec.totalDuration);
             break;
     }
     
