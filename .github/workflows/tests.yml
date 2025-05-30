@@ -61,4 +61,4 @@ jobs:
         run: npm i
 
       - name: Run Jest tests
-        run: npm run test -- --coverage --ci --passWithNoTests
+        run: npm run jest -- --coverage --ci --passWithNoTests
