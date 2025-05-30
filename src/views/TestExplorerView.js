@@ -6,6 +6,7 @@ const { minimatch } = require( "minimatch" );
 // const { parseLuceeExecLog, LuceeExectionReport } = require("../utils/luceeExecLogParser");
 
 const testFileGlob = "**/*{Spec,Test,Tests}.cfc"; // <-- should be configurable
+// TODO: Enable this for Boxlang Files too. There should be a way to detect this rather than hardcoding it.
 const languageId = "cfml"; // The language ID for CFML files
 const cfcFileGlob = "**/*.cfc";
 /**
@@ -15,7 +16,7 @@ const cfcFileGlob = "**/*.cfc";
 // Lookup Maps: Used to store extra data about the tests and map to files
 const testData = new WeakMap();
 
-// Classes
+// Metadata classes used in the test explorer view to store information about the tests
 class TestBundle {
 	name = "";
 	path = "";
@@ -167,6 +168,8 @@ class TestSpec {
 }
 
 // This creates the explorer view. A lot of the functions are added within as they need the controller which we keep in the createTestExplorerView scope
+
+
 async function createTestExplorerView( context ) {
 
 	context.subscriptions.push(
@@ -334,10 +337,7 @@ async function createTestExplorerView( context ) {
 	 * @param {boolean} [shouldCoverage=false] - Whether to collect code coverage during test execution
 	 * @param {boolean} [shouldDebug=false] - Whether to run tests in debug mode
 	 * @param {Object} request - The test run request object containing include/exclude filters
-	 * @param {Object} request.include - Array of tests to include in the run
-	 * @param {Object} request.exclude - Array of tests to exclude from the run
 	 * @param {Object} token - Cancellation token to check if the operation should be cancelled
-	 * @param {boolean} token.isCancellationRequested - Flag indicating if cancellation was requested
 	 * @returns {Promise<void>} Promise that resolves when all test batches have completed
 	 * @description
 	 * Creates a test run, organizes tests into batches based on available runner threads,
@@ -483,8 +483,17 @@ async function createTestExplorerView( context ) {
 }
 
 /**
- * Get the box.json runner, if not try the value from the configuration
- **/
+ * Retrieves the TestBox runner URL from either the box.json configuration file or VS Code settings.
+ *
+ * First attempts to locate a box.json file in the workspace root and extract the runner URL
+ * from the testbox.runner property. If no box.json file is found or the runner property
+ * is not specified, falls back to the "runnerUrl" setting from the VS Code "testbox" configuration.
+ *
+ * @async
+ * @function getTestBoxRunnerUrl
+ * @returns {Promise<string|undefined>} The TestBox runner URL, or undefined if not configured
+ * @throws {Error} May throw if box.json file cannot be read or parsed as valid JSON
+ */
 async function getTestBoxRunnerUrl() {
 	// Look for the box file in the root.
 	const boxFiles = await vscode.workspace.findFiles( "box.json", "", 1 );
@@ -501,6 +510,16 @@ async function getTestBoxRunnerUrl() {
 
 }
 
+/**
+ * Recursively creates a test tree structure for the Testbox Test Explorer view.
+ * Processes TreeSuite and TreeSpec items from the given tree item's children,
+ * creating corresponding test items in the controller and adding them under a bundle or suite
+ *
+ * @param {Object} treeitem - The parent tree item containing children to process
+ * @param {Object} viewRoot - The root view item where new test items will be added
+ * @param {Object} controller - The test controller used to create new test items
+ * @returns {void}
+ */
 function createTestTree( treeitem, viewRoot, controller ) {
 
 	// Get all the children of the tree
@@ -531,145 +550,14 @@ function createTestTree( treeitem, viewRoot, controller ) {
 
 }
 
-/**
- * Discovers test files and adds them to the test controller.
- *
- * This function clears out any previous test items from the controller,
- * retrieves the list of test files based on the specified glob pattern
- * and excluded paths from the workspace configuration, and then maps
- * each file path to a test name before adding it to the controller.
- *
- * @param {vscode.TestController} controller - The test controller to which discovered tests will be added.
- * @returns {Promise<void>} A promise that resolves when the test discovery is complete.
- */
-// async function discoverTests(controller, selectedFiles) {
-//     return;
-//     // TODO: manage if we are changing a single item. This can cause the tree to blow up.
-//     // Clear out previous items
-//     controller.items.replace([]);
-//     console.log("TODO, clear out only selected items", selectedFiles)
-//     // if(selectedFiles) {
-//     //     for(const selectedFile of selectedFiles) {
-//     //         controller.items.forEach(item => {
-
-//     //             if(item.uri.path == selectedFile.path) {
-
-//     //                 controller.items.delete(item);
-//     //             }
-//     //         });
-//     //     }
-//     // }
-//     // else {
-//     //     controller.items.replace([]);
-//     // }
-//     let runnerUrl = await getTestBoxRunnerUrl();
-//     // try and find the runnerURL if it is not defined.
-//     if (!runnerUrl) {
-//         vscode.workspace.showErrorMessage("No Runner URL found in settings of boxfile");
-//         return;
-
-//     }
-
-//     let bundles = vscode.workspace.getConfiguration("testbox").get("bundles"); //??
-//     console.log("Bundles arent used", bundles);
-//     const excludedPaths = vscode.workspace.getConfiguration("testbox").get("excludedPaths");
-//     const excludedPackagesConfig = vscode.workspace.getConfiguration("testbox").get("excludedPackages", "") || "";
-//     const excludedPackagesArray = excludedPackagesConfig.split(",").map(pkg => pkg.trim()).filter(pkg => pkg !== "");
-
-//     // Files are at the top of the test tree, so a bundle == file == a top root item. WE can create sub children etc. but those are at the top
-//     // const files = selectedFiles || await vscode.workspace.findFiles(testFileGlob, excludedPaths);
-//     const files = await vscode.workspace.findFiles(testFileGlob, excludedPaths);
-
-//     const resolveChildren = false;
-
-//     foundfiles: for (const file of files) {
-//         const absolutePath = applyPathMappings(vscode.workspace.asRelativePath(file.fsPath));
-//         const packageName = convertToDottedPackageName(absolutePath);
-
-//         // Check if the package is excluded
-//         for (const expackage of excludedPackagesArray) {
-//             if (packageName.startsWith(expackage)) {
-//                 LOG.debug(`Skipping ${packageName} as it is in the excluded packages`);
-//                 continue foundfiles;
-//             }
-//         }
-//         // ID == "bundle_" + packageName;
-
-//         // Create thee tree root.
-//         const root = controller.createTestItem("bundle_" + packageName, packageName, file);
-//         root.description = `Bundle`;
-//         root.tags = ["bundle"];
-//         root.canResolveChildren = false;
-//         root.range = new vscode.Range(0, 0, 0, 0);
-//         // The canResolveChildren is set to false so we can add the children manually. This means that we can add results to the children if they are not expanded.
-//         root.canResolveChildren = resolveChildren;
-
-//         // This wouldnt be runtime. I am adding here to see about speeding up the process
-//         if (!root.canResolveChildren) {
-//             const content = await vscode.workspace.openTextDocument(file);
-//             const tree = await generateTreeFromText(content.getText(), absolutePath, packageName, runnerUrl);
-//             createTestTree(tree, root, controller);
-//             testData.set(root, tree);
-//         }
-//         else {
-
-
-
-//             root.resolveHandler = async (item) => {
-//                 // Only resolve if children are not already loaded
-//                 if (item.children.size > 0) return;
-
-//                 const tree = testData.get(item);
-//                 if (!tree || !tree.children) return;
-
-//                 createTestTree(tree, item, controller);
-//             };
-
-//         }
-
-
-//         // Lookups
-//         fileTestItems.set(file, root);
-//         controller.items.add(root);
-//         // createTestTree(tree, root, controller, 1, 1);
-//         // //Create  and parse the test Item
-
-
-
-
-//     }
-// }
-
-
-
-
 
 /**
- * Handles the test run request and cancellation.
- * @param {vscode.TestRunRequest} request - The test run request.
- * @param {vscode.CancellationToken} cancellation - The cancellation token.
+ * Gets the total number of runner threads from the VSCode workspace configuration.
+ * Retrieves the 'urlThreads' setting from the 'testbox' configuration, with validation
+ * to ensure a minimum of 1 thread and a default of 10 threads if not configured or set to 0.
  *
+ * @returns {number} The number of runner threads to use (minimum 1, default 10)
  */
-// function runHandler(request, cancellation, controller, isDebug = false, isCoverage = false) {
-
-
-//     if (!request.continuous) {
-//         return startTestRunViaURL(request, controller, cancellation, isDebug, isCoverage);
-//     }
-//     else {
-//         console.error("Continuous run not implemented");
-//         // if (request.include === undefined) {
-//         // 	watchingTests.set('ALL', request.profile);
-//         // 	cancellation.onCancellationRequested(() => watchingTests.delete('ALL'));
-//         // } else {
-//         // 	request.include.forEach(item => watchingTests.set(item, request.profile));
-//         // 	cancellation.onCancellationRequested(() => request.include!.forEach(item => watchingTests.delete(item)));
-//         // }
-
-//     }
-// }
-
-
 function getTotalRunnerThreads() {
 	let threads = vscode.workspace.getConfiguration( "testbox" ).get( "urlThreads", 10 );
 	if ( !threads || threads === 0 ) {
