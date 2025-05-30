@@ -1,11 +1,11 @@
-const vscode = require("vscode");
-const { generateTreeFromText, TreeSuite, TreeSpec } = require('../utils/testTreeGenerator');
-const { parseTestResults, getAllSpecsFromTest, updateTestWithResults } = require("../utils/resultParser");
-const { renderResult } = require("../utils/resultRenderer");
-const { minimatch } = require("minimatch");
+const vscode = require( "vscode" );
+const { generateTreeFromText, TreeSuite, TreeSpec } = require( "../utils/testTreeGenerator" );
+const { parseTestResults, getAllSpecsFromTest, updateTestWithResults } = require( "../utils/resultParser" );
+const { renderResult } = require( "../utils/resultRenderer" );
+const { minimatch } = require( "minimatch" );
 // const { parseLuceeExecLog, LuceeExectionReport } = require("../utils/luceeExecLogParser");
 
-const testFileGlob = '**/*{Spec,Test,Tests}.cfc'; //<-- should be configurable
+const testFileGlob = "**/*{Spec,Test,Tests}.cfc"; // <-- should be configurable
 const languageId = "cfml"; // The language ID for CFML files
 const cfcFileGlob = "**/*.cfc";
 /**
@@ -17,543 +17,505 @@ const testData = new WeakMap();
 
 // Classes
 class TestBundle {
-    name = "";
-    path = "";
-    directory = "";
-    runnerUrl = "";
-    children = [];
+	name = "";
+	path = "";
+	directory = "";
+	runnerUrl = "";
+	children = [];
 
-    constructor(path, name, runnerUrl, block) {
-        // Things we need to construct the URL and to classify the test
-        this.name = name;
-        this.path = path;
-        this.directory = name.split('.').slice(0, -1).join('.');
-        this.runnerUrl = runnerUrl;
-        // this.block = block || [];
+	constructor( path, name, runnerUrl, block ) {
+		// Things we need to construct the URL and to classify the test
+		this.name = name;
+		this.path = path;
+		this.directory = name.split( "." ).slice( 0, -1 ).join( "." );
+		this.runnerUrl = runnerUrl;
+		// this.block = block || [];
 
-        for (var blockitem of block) {
-            this.children.push(
-                new TestSuite(blockitem, this, this)
-            )
-        }
+		for ( const blockitem of block ) {
+			this.children.push(
+				new TestSuite( blockitem, this, this )
+			);
+		}
 
-    }
+	}
 
-    getJSONReporterURL() {
+	getJSONReporterURL() {
 
-        const bundleName = this.name;
-        const dirName = this.directory;
-        return `${this.runnerUrl}?reporter=JSON&recurse=false&directory=${dirName}&bundles=${encodeURIComponent(bundleName)}`;
-    }
+		const bundleName = this.name;
+		const dirName = this.directory;
+		return `${this.runnerUrl}?reporter=JSON&recurse=false&directory=${dirName}&bundles=${encodeURIComponent( bundleName )}`;
+	}
 
-    getSimpleReporterURL() {
-        let runnerUrl = vscode.workspace.getConfiguration("testbox").get("runnerUrl");
-        if (!runnerUrl) {
-            vscode.window.showErrorMessage("No Testbox Runner URL configured in settings.");
-            return;
+	getSimpleReporterURL() {
+		const runnerUrl = vscode.workspace.getConfiguration( "testbox" ).get( "runnerUrl" );
+		if ( !runnerUrl ) {
+			vscode.window.showErrorMessage( "No Testbox Runner URL configured in settings." );
+			return;
 
-        }
-        const bundleName = this.name;
-        const dirName = this.directory;
-        return `${runnerUrl}?reporter=simple&recurse=false&directory=${dirName}&testBundles=${encodeURIComponent(bundleName)}`;
-    }
+		}
+		const bundleName = this.name;
+		const dirName = this.directory;
+		return `${runnerUrl}?reporter=simple&recurse=false&directory=${dirName}&testBundles=${encodeURIComponent( bundleName )}`;
+	}
 
-    async getText() {
-        const doc = await vscode.workspace.openTextDocument(this.path);
-        return doc.getText();
-    }
+	async getText() {
+		const doc = await vscode.workspace.openTextDocument( this.path );
+		return doc.getText();
+	}
 
-    //     const testURLSimple = `${runnerUrl}?reporter=simple&recurse=false&directory=${dirName}&testBundles=${encodeURIComponent(bundleName)}`;
-    //     // These are the root items. in theory all would be Specs?
-    //     const testItem = controller.createTestItem(testUrl, bundleName, file);
-    getTestLabelPath() {
-        return this.name;
-    }
+	//     const testURLSimple = `${runnerUrl}?reporter=simple&recurse=false&directory=${dirName}&testBundles=${encodeURIComponent(bundleName)}`;
+	//     // These are the root items. in theory all would be Specs?
+	//     const testItem = controller.createTestItem(testUrl, bundleName, file);
+	getTestLabelPath() {
+		return this.name;
+	}
 }
 class TestSuite {
-    // id = "";
-    name = "";
-    title = "";
-    fullLine = "";
-    startOffset = "";
-    endOffset = "";
-    range = "";
-    bundle = "";
-    parent = "";
-    skipped = false;
-    children = [];
+	// id = "";
+	name = "";
+	title = "";
+	fullLine = "";
+	startOffset = "";
+	endOffset = "";
+	range = "";
+	bundle = "";
+	parent = "";
+	skipped = false;
+	children = [];
 
-    constructor(block, bundle, parent) {
-        this.name = block.type;
-        // this.fullLine = block.fullLine;
-        this.title = block.title;
-        this.startOffset = block.offset;
-        this.endOffset = block.endOffset;
-        this.range = block.range || { start: { line: block.line, column: 0 }, end: { line: block.endLine, column: 0 } };
-        this.skipped = block.skipped || false;
-        this.bundle = bundle;
-        this.parent = parent;
+	constructor( block, bundle, parent ) {
+		this.name = block.type;
+		// this.fullLine = block.fullLine;
+		this.title = block.title;
+		this.startOffset = block.offset;
+		this.endOffset = block.endOffset;
+		this.range = block.range || { start: { line: block.line, column: 0 }, end: { line: block.endLine, column: 0 } };
+		this.skipped = block.skipped || false;
+		this.bundle = bundle;
+		this.parent = parent;
 
-        for (var blockitem of block.children) {
-            if (["it", "xit"].includes(blockitem.name)) {
-                this.children.push(new TestSpec(blockitem, bundle, this));
-            }
-            else {
-                this.children.push(new TestSuite(blockitem, bundle, this));
-            }
+		for ( const blockitem of block.children ) {
+			if ( [
+				"it",
+				"xit"
+			].includes( blockitem.name ) ) {
+				this.children.push( new TestSpec( blockitem, bundle, this ) );
+			}
+			else {
+				this.children.push( new TestSuite( blockitem, bundle, this ) );
+			}
 
-        }
-    }
+		}
+	}
 
 
-    getID() {
-        return this.bundle.name + "suite" + this.title;
-    }
-    getJSONReporterURL() {
+	getID() {
+		return this.bundle.name + "suite" + this.title;
+	}
+	getJSONReporterURL() {
 
-        // const bundleName = this.bundle.name;
-        const dirName = this.bundle.directory;
-        return `${this.bundle.runnerUrl}?reporter=JSON&recurse=false&directory=${dirName}&testSuite=${encodeURIComponent(this.title)}`;
-    }
-    getURI() {
-        return this.bundle.path;
-    }
-    getTestLabelPath() {
-        return this.bundle.getTestLabelPath() + ": " + this.title;
-    }
+		// const bundleName = this.bundle.name;
+		const dirName = this.bundle.directory;
+		return `${this.bundle.runnerUrl}?reporter=JSON&recurse=false&directory=${dirName}&testSuite=${encodeURIComponent( this.title )}`;
+	}
+	getURI() {
+		return this.bundle.path;
+	}
+	getTestLabelPath() {
+		return this.bundle.getTestLabelPath() + ": " + this.title;
+	}
 }
 class TestSpec {
-    id = "";
-    title = "";
-    name = "";
-    fullLine = "";
-    startOffset = "";
-    endOffset = "";
-    range = "";
-    children = "";
-    parent = "";
-    bundle = "";
-    constructor(block, bundle, parent) {
-        this.name = block.name;
-        this.fullLine = block.fullLine;
-        this.title = block.title;
-        this.startOffset = block.startOffset;
-        this.endOffset = block.endOffset;
-        this.range = block.range;
-        this.skipped = block.skipped || false;
-        this.children = block.children || [];
-        this.parent = parent;
-        this.bundle = bundle;
-        this.id = `${this.bundle.id}&testSpecs=${encodeURIComponent(this.title)}`
-    }
+	id = "";
+	title = "";
+	name = "";
+	fullLine = "";
+	startOffset = "";
+	endOffset = "";
+	range = "";
+	children = "";
+	parent = "";
+	bundle = "";
+	constructor( block, bundle, parent ) {
+		this.name = block.name;
+		this.fullLine = block.fullLine;
+		this.title = block.title;
+		this.startOffset = block.startOffset;
+		this.endOffset = block.endOffset;
+		this.range = block.range;
+		this.skipped = block.skipped || false;
+		this.children = block.children || [];
+		this.parent = parent;
+		this.bundle = bundle;
+		this.id = `${this.bundle.id}&testSpecs=${encodeURIComponent( this.title )}`;
+	}
 
-    getID() {
-        return this.parent.getID() + "spec" + this.title;
-    }
-    getJSONReporterURL() {
+	getID() {
+		return this.parent.getID() + "spec" + this.title;
+	}
+	getJSONReporterURL() {
 
-        const dirName = this.bundle.directory;
-        return `${this.bundle.runnerUrl}?reporter=JSON&recurse=false&directory=${dirName}&testSpec=${encodeURIComponent(this.title)}`;
-    }
-    getURI() {
-        return this.bundle.path;
-    }
-    getTestLabelPath() {
-        return this.bundle.getTestLabelPath() + ":" + this.title + "\r\n\t" + this.getJSONReporterURL();
-    }
+		const dirName = this.bundle.directory;
+		return `${this.bundle.runnerUrl}?reporter=JSON&recurse=false&directory=${dirName}&testSpec=${encodeURIComponent( this.title )}`;
+	}
+	getURI() {
+		return this.bundle.path;
+	}
+	getTestLabelPath() {
+		return this.bundle.getTestLabelPath() + ":" + this.title + "\r\n\t" + this.getJSONReporterURL();
+	}
 }
 
 // This creates the explorer view. A lot of the functions are added within as they need the controller which we keep in the createTestExplorerView scope
-async function createTestExplorerView(context) {
+async function createTestExplorerView( context ) {
 
-    context.subscriptions.push(
-		vscode.commands.registerCommand("testbox.open-in-browser", async (testItem) => {
-			if (testItem) {
-			vscode.window.showInformationMessage(`Custom command triggered for: ${testItem.label}`);
-			    const testMetadata = testData.get(testItem);
-                await vscode.env.openExternal( testMetadata.getSimpleReporterURL() );
+	context.subscriptions.push(
+		vscode.commands.registerCommand( "testbox.open-in-browser", async( testItem ) => {
+			if ( testItem ) {
+				vscode.window.showInformationMessage( `Custom command triggered for: ${testItem.label}` );
+				const testMetadata = testData.get( testItem );
+				await vscode.env.openExternal( testMetadata.getSimpleReporterURL() );
 			}
-		})
-	)
+		} )
+	);
 
 
-    const controller = vscode.tests.createTestController('cfmlTestController', 'CFML Tests');
-    let excludedPackagesConfig = vscode.workspace.getConfiguration("testbox").get("excludedPackages", "") || "";
-    let excludedPackagesArray = excludedPackagesConfig.split(",").map(pkg => pkg.trim().toLowerCase()).filter(pkg => pkg !== "");
-    let testboxRunnerURL = await getTestBoxRunnerUrl();
+	const controller = vscode.tests.createTestController( "cfmlTestController", "CFML Tests" );
+	let excludedPackagesConfig = vscode.workspace.getConfiguration( "testbox" ).get( "excludedPackages", "" ) || "";
+	let excludedPackagesArray = excludedPackagesConfig.split( "," ).map( pkg => pkg.trim().toLowerCase() ).filter( pkg => pkg !== "" );
+	let testboxRunnerURL = await getTestBoxRunnerUrl();
 
-    controller.resolveHandler = async test => {
-        // So we could do some kind of lazy loading here. 
-        if (!test) {
-            // await discoverAllFilesInWorkspace();
-            // Add performance markers
-            console.time('discoverAllFilesInWorkspace');
-            await discoverAllFilesInWorkspace();
-            console.timeEnd('discoverAllFilesInWorkspace');
+	controller.resolveHandler = async test => {
+		// So we could do some kind of lazy loading here.
+		if ( !test ) {
+			// await discoverAllFilesInWorkspace();
+			// Add performance markers
+			console.time( "discoverAllFilesInWorkspace" );
+			await discoverAllFilesInWorkspace();
+			console.timeEnd( "discoverAllFilesInWorkspace" );
 
-            // For the selection area:
-        } else {
-            console.time(`parseTestsInFileContents-${test.id}`);
-            await parseTestsInFileContents(test);
-            console.timeEnd(`parseTestsInFileContents-${test.id}`);
-        }
-    };
-
-
-    
-
-    // Throttle document change events to avoid excessive parsing
-    let parseTimeout;
-    const throttledParseDocument = (document) => {
-        clearTimeout(parseTimeout);
-        parseTimeout = setTimeout(() => parseTestsInDocument(document), 300);
-    };
-
-    vscode.workspace.onDidChangeTextDocument(async e => await throttledParseDocument(e.document));
-
-    vscode.workspace.onDidChangeConfiguration(async (e) => {
-        if (e.affectsConfiguration("testbox")) {
-            testboxRunnerURL = await getTestBoxRunnerUrl();
-            excludedPackagesConfig = vscode.workspace.getConfiguration("testbox").get("excludedPackages", "") || "";
-            excludedPackagesArray = excludedPackagesConfig.split(",").map(pkg => pkg.trim().toLowerCase()).filter(pkg => pkg !== "");
-            discoverAllFilesInWorkspace();
-        }
-    });
-
-    //  WATCH FILES FOR CHANGEES
-    const watcher = vscode.workspace.createFileSystemWatcher(testFileGlob, false, false, false);
-    // When a file is created,add it to the tree.
-    watcher.onDidCreate(uri => getOrCreateFile(uri));
-    // When we change it, re-parse the file contents
-    watcher.onDidChange(async uri => {
-        const testTreeItem = await getOrCreateFile(uri);
-        parseTestsInFileContents(testTreeItem);
-    });
-    // When we delete it, remove it from the tree
-    watcher.onDidDelete(uri => controller.items.delete(uri.toString()));
-
-    async function getOrCreateFile(uri) {
-        const existing = controller.items.get(uri.toString());
-        if (existing) {
-            return existing;
-        }
+			// For the selection area:
+		} else {
+			console.time( `parseTestsInFileContents-${test.id}` );
+			await parseTestsInFileContents( test );
+			console.timeEnd( `parseTestsInFileContents-${test.id}` );
+		}
+	};
 
 
-        // Is this file even a test file
-        const isTestFile = minimatch(uri.fsPath, testFileGlob, { debug: false, nocase: true });
-        if (!isTestFile) {
-            // console.log(`Skipping file ${uri.fsPath} as it does not match the test file glob.`);
-            return; // Skip this file
-        }
-        const relativePath = vscode.workspace.asRelativePath(uri)
-        const mappedPath = applyPathMappings(relativePath);
-        const packageName = convertToDottedPackageName(mappedPath);
-
-        // Should be done in a separate function
-        for (const excludedPackage of excludedPackagesArray) {
-            // Set to lowercase to make sure we are not case senssitive
-            if (packageName.toLowerCase().startsWith(excludedPackage)) {
-                return;
-            }
-        }
-
-        const testItem = controller.createTestItem(packageName, packageName, uri);
-        testItem.description = `Bundle`;
-        // testItem.tags = ["bundle"];
-        testItem.canResolveChildren = true;
-
-        const testBundle = new TestBundle(mappedPath, packageName, testboxRunnerURL, [])
-        testData.set(testItem, testBundle);
-        controller.items.add(testItem);
-        return testItem;
-
-    }
-
-    async function parseTestsInDocument(document) {
-        if (document.uri.scheme === "file" && document.languageId === languageId) {
-            parseTestsInFileContents(await getOrCreateFile(document.uri), document.getText());
-        }
-    }
-
-    // file: vscode.TestItem, contents?: string
-    async function parseTestsInFileContents(testItem, contents) {
-        // If document is already open, if we are in a resolve handler it might not be open yet and we need to read it from disk
-        if (contents === undefined && testItem.uri.scheme === "file") {
-            const rawContent = await vscode.workspace.fs.readFile(testItem.uri);
-            contents = new TextDecoder().decode(rawContent);
-        }
-        const runnerUrl = await getTestBoxRunnerUrl();
-        const tree = await generateTreeFromText(contents, testItem.uri, testItem.id, runnerUrl);
-        createTestTree(tree, testItem, controller);
-        testData.set(testItem, tree);
-    }
-
-    async function discoverAllFilesInWorkspace() {
-        if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
-            // if there are no workspace folders, we cannot discover any files
-            return [];
-        }
-        const excludedPathsConfig = vscode.workspace.getConfiguration("testbox").get("excludedPaths", "") || "";
-        const maxFilesInWorkspace = vscode.workspace.getConfiguration("testbox").get("maxFilesInWorkspace", 5000);
-
-        controller.items.replace([]); // Clear out the previous items
-        return Promise.all(
-            vscode.workspace.workspaceFolders.map(async (workspaceFolder) => {
-                console.log(`Discovering tests in workspace folder: ${workspaceFolder.name}`);
-                // const pattern = new vscode.RelativePattern(workspaceFolder, testFileGlob);
-
-                const allFiles = await vscode.workspace.findFiles(cfcFileGlob, excludedPathsConfig, maxFilesInWorkspace);
 
 
-                for (const file of allFiles) {
-                    getOrCreateFile(file);
-                }
+	// Throttle document change events to avoid excessive parsing
+	let parseTimeout;
+	const throttledParseDocument = ( document ) => {
+		clearTimeout( parseTimeout );
+		parseTimeout = setTimeout( () => parseTestsInDocument( document ), 300 );
+	};
 
-            }) //end  vscode.workspace.workspaceFolders.map(async (folder)
-        );
-    }
+	vscode.workspace.onDidChangeTextDocument( async e => await throttledParseDocument( e.document ) );
 
-    // Run the Tests
-    controller.createRunProfile(
-        "Run",
-        vscode.TestRunProfileKind.Run,
-        (request, token) => {
-            return runHandler(false, false, request, token);
-        },
-    );
+	vscode.workspace.onDidChangeConfiguration( async( e ) => {
+		if ( e.affectsConfiguration( "testbox" ) ) {
+			testboxRunnerURL = await getTestBoxRunnerUrl();
+			excludedPackagesConfig = vscode.workspace.getConfiguration( "testbox" ).get( "excludedPackages", "" ) || "";
+			excludedPackagesArray = excludedPackagesConfig.split( "," ).map( pkg => pkg.trim().toLowerCase() ).filter( pkg => pkg !== "" );
+			discoverAllFilesInWorkspace();
+		}
+	} );
 
-    /**
-     * Handles the execution or debugging of a test run.
-     *
-     * @param {boolean} [shouldDebug=false] - Indicates whether to run in debug mode.
-     * @param {vscode.TestRunRequest} request - The request object containing test run information.
-     * @param {vscode.CancellationToken} token - A cancellation token or identifier for the run.
-     */
-    async function runHandler(shouldCoverage = false, shouldDebug = false, request, token) {
-        const run = controller.createTestRun(request);
-        const queue = [];
-        const batchSize = getTotalRunnerThreads();
+	//  WATCH FILES FOR CHANGEES
+	const watcher = vscode.workspace.createFileSystemWatcher( testFileGlob, false, false, false );
+	// When a file is created,add it to the tree.
+	watcher.onDidCreate( uri => getOrCreateFile( uri ) );
+	// When we change it, re-parse the file contents
+	watcher.onDidChange( async uri => {
+		const testTreeItem = await getOrCreateFile( uri );
+		parseTestsInFileContents( testTreeItem );
+	} );
+	// When we delete it, remove it from the tree
+	watcher.onDidDelete( uri => controller.items.delete( uri.toString() ) );
 
-        // Collect all tests to run
-        if (request.include) {
-            request.include.forEach(test => queue.push(test));
-        } else {
-            controller.items.forEach(test => queue.push(test));
-        }
-
-        const dedupeQueue = filterSelection(queue);
-
-        // Create batches of tests
-        const batches = [];
-        for (let i = 0; i < dedupeQueue.length; i += batchSize) {
-            batches.push(dedupeQueue.slice(i, i + batchSize));
-        }
-
-        // Run each batch in parallel
-        for (const batch of batches) {
-            if (token.isCancellationRequested) break;
-            console.log(`Running batch of ${batch.length} tests...`);
-            const batchPromises = batch.map(async test => {
-                if (token.isCancellationRequested) return;
-                if (request.exclude?.includes(test)) return;
-
-                // If we don't know the children in a bundle, parse them now.
-                if (test.children.size === 0) {
-                    await parseTestsInFileContents(test);
-                }
-
-                return runIndividualTest(test, request, run, token, shouldCoverage, shouldDebug);
-            });
-
-            await Promise.all(batchPromises);
-        }
-
-        // if (request.include) {
-        //     request.include.forEach(test => queue.push(test));
-        // } else {
-        //     controller.items.forEach(test => queue.push(test));
-        // }
-        // const dedupeQueue = filterSelection(queue);
-
-        // const threads = getTotalRunnerThreads();
-        // const limit = pLimit(threads);
-        // const runqueue = newQueue(threads);
-
-        // Prepare an array of limited test runners
-        // dedupeQueue.map(async test => {
-        //         if (token.isCancellationRequested) return;
-        //         // Skip tests the user asked to exclude
-        //         if (request.exclude?.includes(test)) return;
-
-        //         // If we don't know the children in a bundle, parse them now.
-        //         if (test.children.size === 0) {
-        //             await parseTestsInFileContents(test);
-        //         }
-
-        //         const testMeta = testData.get(test);
-        //         if (testMeta instanceof TestBundle) {
-        //             // We can use the topline results.
-        //         }
-        //         // runqueue.add(
-        //         //     async () => {
-        //         //         await runIndividualTest(test, request, run, token, shouldCoverage, shouldDebug);
-        //         //     }
-        //         // )
-        //         runqueue.add(runIndividualTest(test, request, run, token, shouldCoverage, shouldDebug));
-        //     }
-        // );
-        // await runqueue.done();
-        run.end();
-    }
+	async function getOrCreateFile( uri ) {
+		const existing = controller.items.get( uri.toString() );
+		if ( existing ) {
+			return existing;
+		}
 
 
-    // helperfunctions
-    function hasSelectedAncestor(item, selectedSet) {
-        let current = item.parent;
-        while (current) {
-            if (selectedSet.has(current.id)) {
-                return true;
-            }
-            current = current.parent;
-        }
-        return false;
-    }
+		// Is this file even a test file
+		const isTestFile = minimatch( uri.fsPath, testFileGlob, { debug: false, nocase: true } );
+		if ( !isTestFile ) {
+			// console.log(`Skipping file ${uri.fsPath} as it does not match the test file glob.`);
+			return; // Skip this file
+		}
+		const relativePath = vscode.workspace.asRelativePath( uri );
+		const mappedPath = applyPathMappings( relativePath );
+		const packageName = convertToDottedPackageName( mappedPath );
 
-    function filterSelection(selectedItems) {
-        const selectedSet = new Set(selectedItems.map(item => item.id));
+		// Should be done in a separate function
+		for ( const excludedPackage of excludedPackagesArray ) {
+			// Set to lowercase to make sure we are not case senssitive
+			if ( packageName.toLowerCase().startsWith( excludedPackage ) ) {
+				return;
+			}
+		}
 
-        return selectedItems.filter(item => !hasSelectedAncestor(item, selectedSet));
-    }
+		const testItem = controller.createTestItem( packageName, packageName, uri );
+		testItem.description = `Bundle`;
+		// testItem.tags = ["bundle"];
+		testItem.canResolveChildren = true;
+
+		const testBundle = new TestBundle( mappedPath, packageName, testboxRunnerURL, [] );
+		testData.set( testItem, testBundle );
+		controller.items.add( testItem );
+		return testItem;
+
+	}
+
+	async function parseTestsInDocument( document ) {
+		if ( document.uri.scheme === "file" && document.languageId === languageId ) {
+			parseTestsInFileContents( await getOrCreateFile( document.uri ), document.getText() );
+		}
+	}
+
+	// file: vscode.TestItem, contents?: string
+	async function parseTestsInFileContents( testItem, contents ) {
+		// If document is already open, if we are in a resolve handler it might not be open yet and we need to read it from disk
+		if ( contents === undefined && testItem.uri.scheme === "file" ) {
+			const rawContent = await vscode.workspace.fs.readFile( testItem.uri );
+			contents = new TextDecoder().decode( rawContent );
+		}
+		const runnerUrl = await getTestBoxRunnerUrl();
+		const tree = await generateTreeFromText( contents, testItem.uri, testItem.id, runnerUrl );
+		createTestTree( tree, testItem, controller );
+		testData.set( testItem, tree );
+	}
+
+	async function discoverAllFilesInWorkspace() {
+		if ( !vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0 ) {
+			// if there are no workspace folders, we cannot discover any files
+			return [];
+		}
+		const excludedPathsConfig = vscode.workspace.getConfiguration( "testbox" ).get( "excludedPaths", "" ) || "";
+		const maxFilesInWorkspace = vscode.workspace.getConfiguration( "testbox" ).get( "maxFilesInWorkspace", 5000 );
+
+		controller.items.replace( [] ); // Clear out the previous items
+		return Promise.all(
+			vscode.workspace.workspaceFolders.map( async( workspaceFolder ) => {
+				console.log( `Discovering tests in workspace folder: ${workspaceFolder.name}` );
+				// const pattern = new vscode.RelativePattern(workspaceFolder, testFileGlob);
+
+				const allFiles = await vscode.workspace.findFiles( cfcFileGlob, excludedPathsConfig, maxFilesInWorkspace );
 
 
-    async function runIndividualTest(test, request, run, cancellation, isDebug = false, isCoverage = false) {
-        const start = Date.now();
-        run.started(test);
-        const testMeta = testData.get(test);
-        let urlToRun = testMeta.getJSONReporterURL();
-        // Not implemented
-        if (isCoverage) {  // urlToRun = urlToRun + "&=coverage=true"; 
-        }
-        if (isDebug) { // Have to somehow start luceedebuig?
-        }
+				for ( const file of allFiles ) {
+					getOrCreateFile( file );
+				}
 
-        if (cancellation.isCancellationRequested) {
-            run.appendOutput(`\t🚨  Test cancelled [${test.id}]\r\n`)
-            run.errored(test, `Test cancelled [${test.id}]`);
-            return;
-        }
-        // const runnerType = vscode.workspace.getConfiguration("testbox").get("runnerType", "json");
-        try {
-            run.appendOutput(`🧪 ${test.label} [${urlToRun}]\r\n`);
-            const response = await fetch(urlToRun);
-            if (!response.ok) {
-                const message = `\t🚨 HTTP error ${response.status} [${urlToRun}]\r\n`;
-                run.errored(test, message, Date.now() - start);
-                vscode.window.showErrorMessage(message);
-                run.appendOutput(message);
-                // Nothing else to do for this test
-                return;
-            }
+			} ) // end  vscode.workspace.workspaceFolders.map(async (folder)
+		);
+	}
 
-            // const testMeta = testData.get(test);
+	// Run the Tests
+	controller.createRunProfile(
+		"Run",
+		vscode.TestRunProfileKind.Run,
+		( request, token ) => {
+			return runHandler( false, false, request, token );
+		},
+	);
 
-            const results = await response.json();
-            const testResults = parseTestResults(results);
-            const specResults = testResults.getSpecs(); //Gets all the specs that were run
-            const testSpecs = getAllSpecsFromTest(test); //Gets all  tests in the tree
+	/**
+	 * Handles the execution or debugging of a test run.
+	 *
+	 * @param {boolean} [shouldDebug=false] - Indicates whether to run in debug mode.
+	 * @param {vscode.TestRunRequest} request - The request object containing test run information.
+	 * @param {vscode.CancellationToken} token - A cancellation token or identifier for the run.
+	 */
+	async function runHandler( shouldCoverage = false, shouldDebug = false, request, token ) {
+		const run = controller.createTestRun( request );
+		const queue = [];
+		const batchSize = getTotalRunnerThreads();
 
-            // Todo: check if there are multiple specs with the same name. If so then we can do something more complicated
+		// Collect all tests to run
+		if ( request.include ) {
+			request.include.forEach( test => queue.push( test ) );
+		} else {
+			controller.items.forEach( test => queue.push( test ) );
+		}
 
-            // let notFoundResults = specResults.filter(result => {
-            //     const testMeta = testData.get(test);
-            //     return result.name !== testMeta.title;
-            // });
+		const dedupeQueue = filterSelection( queue );
 
-            // console.log("Not found results", notFoundResults);
-            //Handle the results by trying to find the bundle and looking up and setting the results
-            //if we didnt get any specResults, we should check if the root was skipped
+		// Create batches of tests
+		const batches = [];
+		for ( let i = 0; i < dedupeQueue.length; i += batchSize ) {
+			batches.push( dedupeQueue.slice( i, i + batchSize ) );
+		}
 
-            if (testResults.totalSkipped == testResults.totalSpecs) {
-                run.skipped(test, `All tests skipped [${test.id}]`);
-            }
+		// Run each batch in parallel
+		for ( const batch of batches ) {
+			if ( token.isCancellationRequested ) { break; }
+			console.log( `Running batch of ${batch.length} tests...` );
+			const batchPromises = batch.map( async test => {
+				if ( token.isCancellationRequested ) { return; }
+				if ( request.exclude?.includes( test ) ) { return; }
 
-            for (const result of specResults) {
-                for (const test of testSpecs) {
-                    const meta = testData.get(test);
-                    if (result.name === meta.title) {
-                        updateTestWithResults(test, result, run);
-                        break;
-                    }
-                }
-            }
+				// If we don't know the children in a bundle, parse them now.
+				if ( test.children.size === 0 ) {
+					await parseTestsInFileContents( test );
+				}
 
-            renderResult(results, run);
+				return runIndividualTest( test, request, run, token, shouldCoverage, shouldDebug );
+			} );
 
-            // const statement = new vscode.StatementCoverage(true, new vscode.Range(0, 50, 10, 1));
-            // const fileCoverage = new vscode.FileCoverage(test.uri, [statement]);
-            // new vscode.CoverageResult(test.label, test.uri, [fileCoverage], Date.now() - start);
-            // run.addCoverage(fileCoverage)
-        }
-        catch (error) {
-            // run.appendOutput(`🧪: ${test.label}\r\n`);
-            const message = `\t🚨  Error [${error.message}] [${urlToRun}]:\r\n`;
-            run.errored(test, message);
-            vscode.window.showErrorMessage(message);
-            run.appendOutput(message);
-            // LOG.error(error.stack);
-        }
+			await Promise.all( batchPromises );
+		}
 
-    }
+		run.end();
+	}
 
-    return { controller };
+
+	// helperfunctions
+	function hasSelectedAncestor( item, selectedSet ) {
+		let current = item.parent;
+		while ( current ) {
+			if ( selectedSet.has( current.id ) ) {
+				return true;
+			}
+			current = current.parent;
+		}
+		return false;
+	}
+
+	function filterSelection( selectedItems ) {
+		const selectedSet = new Set( selectedItems.map( item => item.id ) );
+
+		return selectedItems.filter( item => !hasSelectedAncestor( item, selectedSet ) );
+	}
+
+
+	async function runIndividualTest( test, request, run, cancellation, isDebug = false, isCoverage = false ) {
+		const start = Date.now();
+		run.started( test );
+		const testMeta = testData.get( test );
+		const urlToRun = testMeta.getJSONReporterURL();
+		// Not implemented
+		if ( isCoverage ) {  // urlToRun = urlToRun + "&=coverage=true";
+		}
+		if ( isDebug ) { // Have to somehow start luceedebuig?
+		}
+
+		if ( cancellation.isCancellationRequested ) {
+			run.appendOutput( `\t🚨  Test cancelled [${test.id}]\r\n` );
+			run.errored( test, `Test cancelled [${test.id}]` );
+			return;
+		}
+
+		try {
+			run.appendOutput( `🧪 ${test.label} [${urlToRun}]\r\n` );
+			const response = await fetch( urlToRun );
+			if ( !response.ok ) {
+				const message = `\t🚨 HTTP error ${response.status} [${urlToRun}]\r\n`;
+				run.errored( test, message, Date.now() - start );
+				vscode.window.showErrorMessage( message );
+				run.appendOutput( message );
+				// Nothing else to do for this test
+				return;
+			}
+
+
+			const results = await response.json();
+			const testResults = parseTestResults( results );
+			const specResults = testResults.getSpecs(); // Gets all the specs that were run
+			// Option 3: Use reduce to build object with custom key
+			const specResultLookup = specResults.reduce( ( acc, spec ) => {
+				acc[`${spec.name}___${spec.parent.name}`] = spec;
+				return acc;
+			}, {} );
+			const testSpecs = getAllSpecsFromTest( test ); // Gets all  tests in the tree
+
+			if ( testResults.totalSkipped == testResults.totalSpecs ) {
+				run.skipped( test, `All tests skipped [${test.id}]` );
+			}
+
+
+			for ( const testItem of testSpecs ) {
+				const ref = `${testItem.label}___${testItem.parent.label}`;
+				const result = specResultLookup[ref];
+				if ( result ) {
+					updateTestWithResults( testItem, result, run );
+				}
+				// Go through all of these to look for our results.
+			}
+
+			renderResult( results, run );
+
+			// Coverage stuff for the future
+			// const statement = new vscode.StatementCoverage(true, new vscode.Range(0, 50, 10, 1));
+			// const fileCoverage = new vscode.FileCoverage(test.uri, [statement]);
+			// new vscode.CoverageResult(test.label, test.uri, [fileCoverage], Date.now() - start);
+			// run.addCoverage(fileCoverage)
+		}
+		catch ( error ) {
+			// run.appendOutput(`🧪: ${test.label}\r\n`);
+			const message = `\t🚨  Error [${error.message}] [${urlToRun}]:\r\n`;
+			run.errored( test, message );
+			vscode.window.showErrorMessage( message );
+			run.appendOutput( message );
+			// LOG.error(error.stack);
+		}
+
+	}
+
+	return { controller };
 }
 
 /**
  * Get the box.json runner, if not try the value from the configuration
  **/
 async function getTestBoxRunnerUrl() {
-    // Look for the box file in the root. 
-    const boxFiles = await vscode.workspace.findFiles("box.json", "", 1);
-    if (boxFiles && boxFiles.length) {
-        // Dont have to actually open the file to emit it 
-        const boxFileDoc = await vscode.workspace.fs.readFile(boxFiles[0]);
-        const boxFileJSON = JSON.parse(boxFileDoc);
-        if (boxFileJSON.testbox && boxFileJSON.testbox.runner) {
-            return boxFileJSON.testbox?.runner;
-        }
-    }
-    // If we dont have it check in the settings
-    return vscode.workspace.getConfiguration("testbox").get("runnerUrl");
+	// Look for the box file in the root.
+	const boxFiles = await vscode.workspace.findFiles( "box.json", "", 1 );
+	if ( boxFiles && boxFiles.length ) {
+		// Dont have to actually open the file to emit it
+		const boxFileDoc = await vscode.workspace.fs.readFile( boxFiles[0] );
+		const boxFileJSON = JSON.parse( boxFileDoc );
+		if ( boxFileJSON.testbox && boxFileJSON.testbox.runner ) {
+			return boxFileJSON.testbox?.runner;
+		}
+	}
+	// If we dont have it check in the settings
+	return vscode.workspace.getConfiguration( "testbox" ).get( "runnerUrl" );
 
 }
 
-function createTestTree(treeitem, viewRoot, controller) {
+function createTestTree( treeitem, viewRoot, controller ) {
 
-    // Get all the children of the tree
-    if (!treeitem.children) {
-        return;
-    }
-    for (const item of treeitem.children) {
-        if (item instanceof TreeSuite) {
-            const subTest = controller.createTestItem(item.id, item.title, viewRoot.uri);
-            subTest.description = "Suite";
-            const range = item.range || { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } };
-            subTest.range = new vscode.Range(range.start.line, range.start.column, range.end.line, range.end.column);
-            subTest.tags = ["suite"];
-            viewRoot.children.add(subTest);
-            testData.set(subTest, item);
-            createTestTree(item, subTest, controller);
-        }
-        if (item instanceof TreeSpec) {
-            const subTest = controller.createTestItem(item.id, item.title, viewRoot.uri);
-            subTest.description = "Spec";
-            const range = item.range || { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } };
-            subTest.range = new vscode.Range(range.start.line, range.start.column, range.end.line, range.end.column);
-            subTest.tags = ["spec"];
-            viewRoot.children.add(subTest);
-            testData.set(subTest, item);
-        }
-    }
+	// Get all the children of the tree
+	if ( !treeitem.children ) {
+		return;
+	}
+	for ( const item of treeitem.children ) {
+		if ( item instanceof TreeSuite ) {
+			const subTest = controller.createTestItem( item.id, item.title, viewRoot.uri );
+			subTest.description = "Suite";
+			const range = item.range || { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } };
+			subTest.range = new vscode.Range( range.start.line, range.start.column, range.end.line, range.end.column );
+			subTest.tags = [ "suite" ];
+			viewRoot.children.add( subTest );
+			testData.set( subTest, item );
+			createTestTree( item, subTest, controller );
+		}
+		if ( item instanceof TreeSpec ) {
+			const subTest = controller.createTestItem( item.id, item.title, viewRoot.uri );
+			subTest.description = "Spec";
+			const range = item.range || { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } };
+			subTest.range = new vscode.Range( range.start.line, range.start.column, range.end.line, range.end.column );
+			subTest.tags = [ "spec" ];
+			viewRoot.children.add( subTest );
+			testData.set( subTest, item );
+		}
+	}
 
 }
 
@@ -574,7 +536,7 @@ function createTestTree(treeitem, viewRoot, controller) {
 //     // Clear out previous items
 //     controller.items.replace([]);
 //     console.log("TODO, clear out only selected items", selectedFiles)
-//     // if(selectedFiles) { 
+//     // if(selectedFiles) {
 //     //     for(const selectedFile of selectedFiles) {
 //     //         controller.items.forEach(item => {
 
@@ -602,7 +564,7 @@ function createTestTree(treeitem, viewRoot, controller) {
 //     const excludedPackagesConfig = vscode.workspace.getConfiguration("testbox").get("excludedPackages", "") || "";
 //     const excludedPackagesArray = excludedPackagesConfig.split(",").map(pkg => pkg.trim()).filter(pkg => pkg !== "");
 
-//     // Files are at the top of the test tree, so a bundle == file == a top root item. WE can create sub children etc. but those are at the top 
+//     // Files are at the top of the test tree, so a bundle == file == a top root item. WE can create sub children etc. but those are at the top
 //     // const files = selectedFiles || await vscode.workspace.findFiles(testFileGlob, excludedPaths);
 //     const files = await vscode.workspace.findFiles(testFileGlob, excludedPaths);
 
@@ -621,13 +583,13 @@ function createTestTree(treeitem, viewRoot, controller) {
 //         }
 //         // ID == "bundle_" + packageName;
 
-//         // Create thee tree root. 
+//         // Create thee tree root.
 //         const root = controller.createTestItem("bundle_" + packageName, packageName, file);
 //         root.description = `Bundle`;
 //         root.tags = ["bundle"];
 //         root.canResolveChildren = false;
 //         root.range = new vscode.Range(0, 0, 0, 0);
-//         // The canResolveChildren is set to false so we can add the children manually. This means that we can add results to the children if they are not expanded. 
+//         // The canResolveChildren is set to false so we can add the children manually. This means that we can add results to the children if they are not expanded.
 //         root.canResolveChildren = resolveChildren;
 
 //         // This wouldnt be runtime. I am adding here to see about speeding up the process
@@ -674,7 +636,7 @@ function createTestTree(treeitem, viewRoot, controller) {
  * Handles the test run request and cancellation.
  * @param {vscode.TestRunRequest} request - The test run request.
  * @param {vscode.CancellationToken} cancellation - The cancellation token.
- * 
+ *
  */
 // function runHandler(request, cancellation, controller, isDebug = false, isCoverage = false) {
 
@@ -697,14 +659,14 @@ function createTestTree(treeitem, viewRoot, controller) {
 
 
 function getTotalRunnerThreads() {
-    let threads = vscode.workspace.getConfiguration("testbox").get("urlThreads", 10);
-    if (!threads || threads === 0) {
-        threads = 10;
-    }
-    if (threads < 1) {
-        threads = 1;
-    }
-    return threads;
+	let threads = vscode.workspace.getConfiguration( "testbox" ).get( "urlThreads", 10 );
+	if ( !threads || threads === 0 ) {
+		threads = 10;
+	}
+	if ( threads < 1 ) {
+		threads = 1;
+	}
+	return threads;
 }
 
 
@@ -719,16 +681,16 @@ function getTotalRunnerThreads() {
  * @returns {string} - The new file path after applying the mappings, or the original
  *                     relative file path if no mappings match.
  */
-function applyPathMappings(relativeFilePath) {
-    const mappings = vscode.workspace.getConfiguration("testbox").get("pathMappings");
-    for (const mapping of mappings) {
-        if (relativeFilePath.startsWith(mapping.source)) {
-            // This might not be correct, just have to replace the start
-            const newPath = mapping.target + relativeFilePath.slice(mapping.source.length);
-            return newPath;
-        }
-    }
-    return relativeFilePath;
+function applyPathMappings( relativeFilePath ) {
+	const mappings = vscode.workspace.getConfiguration( "testbox" ).get( "pathMappings" );
+	for ( const mapping of mappings ) {
+		if ( relativeFilePath.startsWith( mapping.source ) ) {
+			// This might not be correct, just have to replace the start
+			const newPath = mapping.target + relativeFilePath.slice( mapping.source.length );
+			return newPath;
+		}
+	}
+	return relativeFilePath;
 }
 
 
@@ -742,17 +704,17 @@ function applyPathMappings(relativeFilePath) {
  * @param {string} filePath - The file path to convert.
  * @returns {string} - The converted test name.
  */
-function convertToDottedPackageName(filePath) {
-    // Remove the .cfc extension (case-insensitive)
-    const withoutExtension = filePath.replace(/\.cfc$/i, '');
-    // Replace both forward and backslashes with dots
-    const dottedPath = withoutExtension.replace(/[/\\]/g, '.');
-    return dottedPath;
+function convertToDottedPackageName( filePath ) {
+	// Remove the .cfc extension (case-insensitive)
+	const withoutExtension = filePath.replace( /\.cfc$/i, "" );
+	// Replace both forward and backslashes with dots
+	const dottedPath = withoutExtension.replace( /[/\\]/g, "." );
+	return dottedPath;
 }
 
 module.exports = {
-    createTestExplorerView,
-    TestBundle,
-    TestSuite,
-    TestSpec
+	createTestExplorerView,
+	TestBundle,
+	TestSuite,
+	TestSpec
 };
