@@ -32,8 +32,6 @@
         "ColdFusion"
       ],
     "activationEvents": [
-      "onLanguage:cfml",
-      "onLanguage:boxlang",
       "onStartupFinished"
     ],
     "main": "./src/extension",
@@ -65,6 +63,10 @@
             {
                 "command": "testbox.run-previous",
                 "title": "TestBox: Run Previous"
+            },
+            {
+                "command": "testbox.open-in-browser",
+                "title": "TestBox: Run In browser"
             }
         ],
         "keybindings": [
@@ -328,6 +330,10 @@
         "typescript": "^5.7.3",
         "typescript-eslint": "^8.27.0"
     },
+    "extensionDependencies":[
+        "ortus-solutions.vscode-boxlang",
+        "ortus-solutions.vscode-commandbox"
+    ],
     "scripts": {
         "compile": "tsc -p ./tsconfig.json",
         "watch": "tsc -w",

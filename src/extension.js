@@ -1,10 +1,10 @@
-const vscode = require("vscode");
-const BoxCommand = require("./box-command");
-const { LOG } = require('./utils/logger');
-
-const { createTestExplorerView } = require('./views/TestExplorerView');
+const vscode = require( "vscode" );
+const BoxCommand = require( "./box-command" );
 const { LOG } = require( "./utils/logger" );
-let globalCommand = new BoxCommand({ runHarness: true });
+
+const { createTestExplorerView } = require( "./views/TestExplorerView" );
+
+let globalCommand = new BoxCommand( { runHarness: true } );
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -64,14 +64,14 @@ module.exports.activate = function( context ) {
 		}
 	} ) );
 
-	
-	
-	
-	// Add the UI Panel for the TestBox Runner
-	const { controller } = createTestExplorerView(context);
-	disposables.push(controller);
 
-	
+
+
+	// Add the UI Panel for the TestBox Runner
+	const { controller } = createTestExplorerView( context );
+	disposables.push( controller );
+
+
 	// Listen for configuration changes
 	context.subscriptions.push( disposables );
 	LOG.info( "💪 Congratulations, the \"TestBox\" Extension is now active!" );
