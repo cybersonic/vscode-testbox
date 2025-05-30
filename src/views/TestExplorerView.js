@@ -325,12 +325,24 @@ async function createTestExplorerView( context ) {
 		},
 	);
 
+
 	/**
-	 * Handles the execution or debugging of a test run.
+	 * Handles the execution of test runs with support for batching, coverage, and debugging.
 	 *
-	 * @param {boolean} [shouldDebug=false] - Indicates whether to run in debug mode.
-	 * @param {vscode.TestRunRequest} request - The request object containing test run information.
-	 * @param {vscode.CancellationToken} token - A cancellation token or identifier for the run.
+	 * @async
+	 * @function runHandler
+	 * @param {boolean} [shouldCoverage=false] - Whether to collect code coverage during test execution
+	 * @param {boolean} [shouldDebug=false] - Whether to run tests in debug mode
+	 * @param {Object} request - The test run request object containing include/exclude filters
+	 * @param {Object} request.include - Array of tests to include in the run
+	 * @param {Object} request.exclude - Array of tests to exclude from the run
+	 * @param {Object} token - Cancellation token to check if the operation should be cancelled
+	 * @param {boolean} token.isCancellationRequested - Flag indicating if cancellation was requested
+	 * @returns {Promise<void>} Promise that resolves when all test batches have completed
+	 * @description
+	 * Creates a test run, organizes tests into batches based on available runner threads,
+	 * and executes them in parallel while respecting cancellation requests. Automatically
+	 * parses test file contents for bundles that don't have pre-parsed children.
 	 */
 	async function runHandler( shouldCoverage = false, shouldDebug = false, request, token ) {
 		const run = controller.createTestRun( request );

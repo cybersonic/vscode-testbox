@@ -1,159 +1,160 @@
-/* eslint-disable no-unused-vars */
-const { spawn } = require('child_process');
-const { getCFTokensBinaryPath } = require('./cftokensLoader');
+
+const { spawn } = require( "child_process" );
+const { getCFTokensBinaryPath } = require( "./cftokensLoader" );
 
 
 class TestNode {
-  type
-  title
-  line
-  offset
-  endLine
-  endOffset
-  children = [];
-  skipped = false;
-  range = { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } };
-  labels = [];
-  constructor(type, title, line, offset, endLine, endOffset) {
-    this.type = type;
-    this.title = title;
-    this.line = line;
-    this.offset = offset;
-    this.endLine = endLine;
-    this.endOffset = endOffset;
+	type;
+	title;
+	line;
+	offset;
+	endLine;
+	endOffset;
+	children = [];
+	skipped = false;
+	range = { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } };
+	labels = [];
+	constructor( type, title, line, offset, endLine, endOffset ) {
+		this.type = type;
+		this.title = title;
+		this.line = line;
+		this.offset = offset;
+		this.endLine = endLine;
+		this.endOffset = endOffset;
 
-  }
+	}
 }
 
 /*
-  This parses cftokens tokens output. Just for what we need,. but we can bve smarter by creating different block types, 
-  These could be defined by a start and end token as well as a block depth and a block stack? 
+  This parses cftokens tokens output. Just for what we need,. but we can bve smarter by creating different block types,
+  These could be defined by a start and end token as well as a block depth and a block stack?
   This might make it easier to parse the tokens and create a tree of blocks.
   SOme start end tokens are:
 
  */
 
 /*
-TODO:  should add a get tokens at position, and get tokens for line etc. 
+TODO:  should add a get tokens at position, and get tokens for line etc.
 */
 
 // String of tokens. Should move to typescript to know wtf is going on
-function getTokensReport(tokensString) {
+function getTokensReport( tokensString ) {
 
-  const tokens = JSON.parse(tokensString);
-  let line = 0;
-  let col = 0;
-  let position = 0;
-  let punctuation_definition_string = false;
-  let punctuation_section_block = false;
-  let punctuation_section_group = false;
-  let punctuation_section_parameters = false;
-
-
-  const report = {
-    tokensByType: {},
-  };
-
-  for (const token in tokens) {
+	const tokens = JSON.parse( tokensString );
+	let line = 0;
+	let col = 0;
+	let position = 0;
+	let punctuationDefinitionString = false;
+	let punctuationSectionBlock = false;
+	let punctuationSectionGroup = false;
+	let punctuationSectionParameters = false;
 
 
-    const [text, context] = tokens[token];
-    if (text.indexOf("\n") > -1) {
-      const newlineCount = (text.match(/\n/g) || []).length;
-      line += newlineCount;
-      col = 0;
-      position++;
-      continue;
-    }
-    position += text.length;
-    col += text.length;
+	const report = { tokensByType: {}, };
 
-    if (context.includes("punctuation.definition.string.begin.cfml")) {
-      punctuation_definition_string = true;
-    }
-
-    if (context.includes("punctuation.section.block.begin.cfml")) {
-      punctuation_section_block = true;
-    }
-
-    if (context.includes("punctuation.section.group.begin.cfml")) {
-      punctuation_section_group = true;
-    }
-
-    if (context.includes("punctuation.section.parameters.begin.cfml")) {
-      punctuation_section_parameters = true;
-    }
+	for ( const token in tokens ) {
 
 
-    if (punctuation_definition_string) {
-      context.push("punctuation.definition.string.cfml");
-    }
-    if (punctuation_section_block) {
-      context.push("punctuation.section.block.cfml");
-    }
-    if (punctuation_section_group) {
-      context.push("punctuation.section.group.cfml");
-    }
-    if (punctuation_section_parameters) {
-      context.push("punctuation.section.parameters.cfml");
-    }
+		const [
+			text,
+			context
+		] = tokens[token];
+		if ( text.indexOf( "\n" ) > -1 ) {
+			const newlineCount = ( text.match( /\n/g ) || [] ).length;
+			line += newlineCount;
+			col = 0;
+			position++;
+			continue;
+		}
+		position += text.length;
+		col += text.length;
 
-    for (const ctx in context) {
-      const ctxtype = context[ctx];
-      if (!report.tokensByType[ctxtype]) {
-        report.tokensByType[ctxtype] = [];
-      }
-      report.tokensByType[ctxtype].push({
-        text: text,
-        line: line,
-        col: col,
-        position: position,
-        context: context
-      });
-    }
+		if ( context.includes( "punctuation.definition.string.begin.cfml" ) ) {
+			punctuationDefinitionString = true;
+		}
 
-    if (context.includes("punctuation.definition.string.end.cfml")) {
-      punctuation_definition_string = false;
-    }
-    if (context.includes("punctuation.section.block.end.cfml")) {
-      punctuation_section_block = false;
-    }
-    if (context.includes("punctuation.section.group.end.cfml")) {
-      punctuation_section_group = false;
-    }
-    if (context.includes("punctuation.section.parameters.end.cfml")) {
-      punctuation_section_parameters = false;
-    }
+		if ( context.includes( "punctuation.section.block.begin.cfml" ) ) {
+			punctuationSectionBlock = true;
+		}
+
+		if ( context.includes( "punctuation.section.group.begin.cfml" ) ) {
+			punctuationSectionGroup = true;
+		}
+
+		if ( context.includes( "punctuation.section.parameters.begin.cfml" ) ) {
+			punctuationSectionParameters = true;
+		}
 
 
+		if ( punctuationDefinitionString ) {
+			context.push( "punctuation.definition.string.cfml" );
+		}
+		if ( punctuationSectionBlock ) {
+			context.push( "punctuation.section.block.cfml" );
+		}
+		if ( punctuationSectionGroup ) {
+			context.push( "punctuation.section.group.cfml" );
+		}
+		if ( punctuationSectionParameters ) {
+			context.push( "punctuation.section.parameters.cfml" );
+		}
 
+		for ( const ctx in context ) {
+			const ctxtype = context[ctx];
+			if ( !report.tokensByType[ctxtype] ) {
+				report.tokensByType[ctxtype] = [];
+			}
+			report.tokensByType[ctxtype].push( {
+				text     : text,
+				line     : line,
+				col      : col,
+				position : position,
+				context  : context
+			} );
+		}
+
+		if ( context.includes( "punctuation.definition.string.end.cfml" ) ) {
+			punctuationDefinitionString = false;
+		}
+		if ( context.includes( "punctuation.section.block.end.cfml" ) ) {
+			punctuationSectionBlock = false;
+		}
+		if ( context.includes( "punctuation.section.group.end.cfml" ) ) {
+			punctuationSectionGroup = false;
+		}
+		if ( context.includes( "punctuation.section.parameters.end.cfml" ) ) {
+			punctuationSectionParameters = false;
+		}
 
 
 
-  }
 
-  // for (const [text, context] of tokens) {
-  //   // Count tokens by type
-  //   if (!report.tokensByType[context]) {
-  //     report.tokensByType[context] = 0;
-  //   }
-  //   report.tokensByType[context]++;
 
-  //   // Count tokens by context
-  //   if (!report.tokensByContext[text]) {
-  //     report.tokensByContext[text] = 0;
-  //   }
-  //   report.tokensByContext[text]++;
 
-  //   // Count tokens by line
-  //   const line = text.split('\n').length - 1;
-  //   if (!report.tokensByLine[line]) {
-  //     report.tokensByLine[line] = 0;
-  //   }
-  //   report.tokensByLine[line]++;
-  // }
+	}
 
-  return report;
+	// for (const [text, context] of tokens) {
+	//   // Count tokens by type
+	//   if (!report.tokensByType[context]) {
+	//     report.tokensByType[context] = 0;
+	//   }
+	//   report.tokensByType[context]++;
+
+	//   // Count tokens by context
+	//   if (!report.tokensByContext[text]) {
+	//     report.tokensByContext[text] = 0;
+	//   }
+	//   report.tokensByContext[text]++;
+
+	//   // Count tokens by line
+	//   const line = text.split('\n').length - 1;
+	//   if (!report.tokensByLine[line]) {
+	//     report.tokensByLine[line] = 0;
+	//   }
+	//   report.tokensByLine[line]++;
+	// }
+
+	return report;
 }
 
 /**
@@ -163,85 +164,91 @@ function getTokensReport(tokensString) {
  */
 
 const cftokensPath = getCFTokensBinaryPath();
-function getTestsFromFile(filePath) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(cftokensPath, ['tokenize', filePath]);
+function getTestsFromFile( filePath ) {
+	return new Promise( ( resolve, reject ) => {
+		const child = spawn( cftokensPath, [
+			"tokenize",
+			filePath
+		] );
 
-    let stdout = '';
-    let stderr = '';
+		let stdout = "";
+		let stderr = "";
 
-    child.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
+		child.stdout.on( "data", ( data ) => {
+			stdout += data.toString();
+		} );
 
-    child.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
+		child.stderr.on( "data", ( data ) => {
+			stderr += data.toString();
+		} );
 
-    child.on('close', (code) => {
-      if (code !== 0) {
-        return reject(new Error(`cftokens exited with code ${code}: ${stderr}`));
-      }
+		child.on( "close", ( code ) => {
+			if ( code !== 0 ) {
+				return reject( new Error( `cftokens exited with code ${code}: ${stderr}` ) );
+			}
 
-      try {
-        const tokens = JSON.parse(stdout);
-        // parseBlocks(tokens);
-        const parsed = parseTestTokens(tokens);
-        resolve(parsed);
-      } catch (err) {
-        reject(new Error(`Failed to parse output as JSON: ${err.message}`));
-      }
-    });
+			try {
+				const tokens = JSON.parse( stdout );
+				// parseBlocks(tokens);
+				const parsed = parseTestTokens( tokens );
+				resolve( parsed );
+			} catch ( err ) {
+				reject( new Error( `Failed to parse output as JSON: ${err.message}` ) );
+			}
+		} );
 
-    child.on('error', (err) => {
-      reject(new Error(`Failed to execute cftokens: ${err.message}`));
-    });
-  });
+		child.on( "error", ( err ) => {
+			reject( new Error( `Failed to execute cftokens: ${err.message}` ) );
+		} );
+	} );
 }
-function getTestsFromText(content) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(cftokensPath, ['tokenize', '-']);
+function getTestsFromText( content ) {
+	return new Promise( ( resolve, reject ) => {
+		const child = spawn( cftokensPath, [
+			"tokenize",
+			"-"
+		] );
 
-    let stdout = '';
-    let stderr = '';
+		let stdout = "";
+		let stderr = "";
 
-    child.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
+		child.stdout.on( "data", ( data ) => {
+			stdout += data.toString();
+		} );
 
-    child.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
+		child.stderr.on( "data", ( data ) => {
+			stderr += data.toString();
+		} );
 
-    child.on('close', (code) => {
-      if (code !== 0) {
-        return reject(new Error(`cftokens exited with code ${code}: ${stderr}`));
-      }
+		child.on( "close", ( code ) => {
+			if ( code !== 0 ) {
+				return reject( new Error( `cftokens exited with code ${code}: ${stderr}` ) );
+			}
 
-      try {
-        const tokens = JSON.parse(stdout);
-        // parseBlocks(tokens);
-        const parsed = parseTestTokens(tokens);
-        resolve(parsed);
-      } catch (err) {
-        reject(new Error(`Failed to parse output as JSON: ${err.message}`));
-      }
-    });
+			try {
+				const tokens = JSON.parse( stdout );
+				// parseBlocks(tokens);
+				const parsed = parseTestTokens( tokens );
+				resolve( parsed );
+			} catch ( err ) {
+				reject( new Error( `Failed to parse output as JSON: ${err.message}` ) );
+			}
+		} );
 
-    child.on('error', (err) => {
-      reject(new Error(`Failed to execute cftokens: ${err.message}`));
-    });
+		child.on( "error", ( err ) => {
+			reject( new Error( `Failed to execute cftokens: ${err.message}` ) );
+		} );
 
-    // Pipe the content into stdin
-    child.stdin.write(content);
-    child.stdin.end();
-  });
+		// Pipe the content into stdin
+		child.stdin.write( content );
+		child.stdin.end();
+	} );
 }
 
-const isComment = ctx => ctx.some(c => c.includes("comment"));
-const isBlockStart = ctx => ctx.includes("punctuation.section.block.begin.cfml");
-const isBlockEnd = ctx => ctx.includes("punctuation.section.block.end.cfml");
-const isFunctionName = ctx => ctx.some(c => c.includes("entity.name.function.cfml"));
+const isComment = ctx => ctx.some( c => c.includes( "comment" ) );
+const isBlockStart = ctx => ctx.includes( "punctuation.section.block.begin.cfml" );
+const isBlockEnd = ctx => ctx.includes( "punctuation.section.block.end.cfml" );
+const isFunctionName = ctx => ctx.some( c => c.includes( "entity.name.function.cfml" ) );
 
 /**
  * Parses a list of tokens and constructs a hierarchical representation of test functions
@@ -249,7 +256,7 @@ const isFunctionName = ctx => ctx.some(c => c.includes("entity.name.function.cfm
  *
  * @param {Array.<[string, string[]]>} tokens - An array of tokens, where each token is a tuple
  * consisting of the token text and its context (an array of strings representing the token's scope).
- * 
+ *
  * @returns {Array.<Object>} An array of root nodes representing the parsed test functions. Each node
  * contains the following properties:
  *   - `type` {string}: The type of the test function (e.g., "describe", "it").
@@ -263,248 +270,262 @@ const isFunctionName = ctx => ctx.some(c => c.includes("entity.name.function.cfm
  *       - `start` {Object}: The starting position with `line` and `column`.
  *       - `end` {Object|null}: The ending position with `line` and `column` (null if not determined).
  */
-function parseTestTokens(tokens) {
-  const functionKeywords = new Set([
-    "describe", "xdescribe",
-    "it", "xit",
-    "given", "xgiven",
-    "when", "xwhen",
-    "then", "xthen",
-    "feature", "xfeature",
-    "scenario", "xscenario",
-    "story", "xstory"
-  ]);
+function parseTestTokens( tokens ) {
+	const functionKeywords = new Set( [
+		"describe",
+		"xdescribe",
+		"it",
+		"xit",
+		"given",
+		"xgiven",
+		"when",
+		"xwhen",
+		"then",
+		"xthen",
+		"feature",
+		"xfeature",
+		"scenario",
+		"xscenario",
+		"story",
+		"xstory"
+	] );
 
 
-  let line = 0;
-  let charInLine = 0;
-  let offset = 0;
+	let line = 0;
+	let charInLine = 0;
+	let offset = 0;
 
-  const root = [];
-  const scopeStack = [];
-  let blockDepth = 0;
-  let i = 0;
+	const root = [];
+	const scopeStack = [];
+	let blockDepth = 0;
+	let i = 0;
 
-  while (i < tokens.length) {
-    const [text, context] = tokens[i];
-    const tokenStartLine = line;
-    const tokenStartColumn = charInLine;
-    const tokenOffset = offset;
+	while ( i < tokens.length ) {
+		const [
+			text,
+			context
+		] = tokens[i];
+		const tokenStartLine = line;
+		const tokenStartColumn = charInLine;
+		const tokenOffset = offset;
 
 
-    // Track line/column/offset
-    if (text.indexOf("\n") > -1) {
-      const newlineCount = (text.match(/\n/g) || []).length;
-      line += newlineCount;
-      charInLine = 0;
-      offset++;
-      i++;
-      continue;
-    }
+		// Track line/column/offset
+		if ( text.indexOf( "\n" ) > -1 ) {
+			const newlineCount = ( text.match( /\n/g ) || [] ).length;
+			line += newlineCount;
+			charInLine = 0;
+			offset++;
+			i++;
+			continue;
+		}
 
-    offset += text.length;
-    charInLine += text.length;
+		offset += text.length;
+		charInLine += text.length;
 
-    if (isComment(context)) {
-      i++;
-      continue;
-    }
+		if ( isComment( context ) ) {
+			i++;
+			continue;
+		}
 
-    if (isBlockStart(context)) {
-      blockDepth++;
-      i++;
-      continue;
-    }
+		if ( isBlockStart( context ) ) {
+			blockDepth++;
+			i++;
+			continue;
+		}
 
-    if (isBlockEnd(context)) {
-      blockDepth--;
+		if ( isBlockEnd( context ) ) {
+			blockDepth--;
 
-      while (
-        scopeStack.length > 0 &&
+			while (
+				scopeStack.length > 0 &&
         scopeStack[scopeStack.length - 1].blockDepth > blockDepth
-      ) {
-        const scope = scopeStack.pop();
-        scope.node.endLine = tokenStartLine;
-        scope.node.endOffset = tokenOffset;
-        scope.node.range.end = {
-          line: tokenStartLine,
-          column: tokenStartColumn
-        };
-      }
+			) {
+				const scope = scopeStack.pop();
+				scope.node.endLine = tokenStartLine;
+				scope.node.endOffset = tokenOffset;
+				scope.node.range.end = {
+					line   : tokenStartLine,
+					column : tokenStartColumn
+				};
+			}
 
-      i++;
-      continue;
-    }
-    let skipped = false;
-    if (functionKeywords.has(text)) {
-      const fnType = text;
-      const startLine = tokenStartLine;
-      const startColumn = tokenStartColumn;
-      const startOffset = tokenOffset;
+			i++;
+			continue;
+		}
+		let skipped = false;
+		if ( functionKeywords.has( text ) ) {
+			const fnType = text;
+			const startLine = tokenStartLine;
+			const startColumn = tokenStartColumn;
+			const startOffset = tokenOffset;
 
-      if (text.startsWith("x")) {
-        skipped = true;
-      }
-      // Look ahead to collect title
-      const title = lookAheadForTitle(tokens, i).trim();
-      // const title = titleParts.join("").trim();
-      // let j = i + 1;
-      // let titleStarted = false;
-      // let titleParts = [];
+			if ( text.startsWith( "x" ) ) {
+				skipped = true;
+			}
+			// Look ahead to collect title
+			const title = lookAheadForTitle( tokens, i ).trim();
+			// const title = titleParts.join("").trim();
+			// let j = i + 1;
+			// let titleStarted = false;
+			// let titleParts = [];
 
-      // This is the oild function but seeing why J is needed
-      // while (j < tokens.length) {
-      //   const [t, c] = tokens[j];
-      //   if (t === '\n') {
-      //     line++;
-      //     charInLine = 0;
-      //     offset++;
-      //     j++;
-      //     continue;
-      //   }
+			// This is the oild function but seeing why J is needed
+			// while (j < tokens.length) {
+			//   const [t, c] = tokens[j];
+			//   if (t === '\n') {
+			//     line++;
+			//     charInLine = 0;
+			//     offset++;
+			//     j++;
+			//     continue;
+			//   }
 
-      //   if (isComment(c)) {
-      //     j++;
-      //     continue;
-      //   }
+			//   if (isComment(c)) {
+			//     j++;
+			//     continue;
+			//   }
 
-      //   offset += t.length;
-      //   charInLine += t.length;
+			//   offset += t.length;
+			//   charInLine += t.length;
 
-      //   if (isDoubleQuotedString(c)) {
-      //     if (t === '"' && !titleStarted) {
-      //       titleStarted = true;
-      //     } else if (t === '"' && titleStarted) {
-      //       break;
-      //     } else if (titleStarted) {
-      //       titleParts.push(t);
-      //     }
-      //   } else if (titleStarted) {
-      //     break;
-      //   }
+			//   if (isDoubleQuotedString(c)) {
+			//     if (t === '"' && !titleStarted) {
+			//       titleStarted = true;
+			//     } else if (t === '"' && titleStarted) {
+			//       break;
+			//     } else if (titleStarted) {
+			//       titleParts.push(t);
+			//     }
+			//   } else if (titleStarted) {
+			//     break;
+			//   }
 
-      //   j++;
-      // }
-      // const title = titleParts.join("").trim();
-
-
-
-      const node = {
-        type: fnType,
-        title,
-        line: startLine,
-        offset: startOffset,
-        endLine: null,
-        endOffset: null,
-        children: [],
-        skipped: skipped,
-        range: {
-          start: { line: startLine, column: startColumn },
-          end: null // will be filled in when block ends
-        }
-      };
-
-      const parent = scopeStack.length > 0 ? scopeStack[scopeStack.length - 1].node : null;
-      if (parent) {
-        parent.children.push(node);
-      } else {
-        root.push(node);
-      }
-
-      // Assume all functions open blocks, track for end positions
-      scopeStack.push({ node, blockDepth: blockDepth + 1 });
+			//   j++;
+			// }
+			// const title = titleParts.join("").trim();
 
 
-    }
 
-    if (isFunctionName(context) && text.toLowerCase().startsWith("test")) {
+			const node = {
+				type      : fnType,
+				title,
+				line      : startLine,
+				offset    : startOffset,
+				endLine   : null,
+				endOffset : null,
+				children  : [],
+				skipped   : skipped,
+				range     : {
+					start : { line: startLine, column: startColumn },
+					end   : null // will be filled in when block ends
+				}
+			};
 
-      const startLine = tokenStartLine;
-      const startColumn = tokenStartColumn;
-      const startOffset = tokenOffset;
-      const title = text;
+			const parent = scopeStack.length > 0 ? scopeStack[scopeStack.length - 1].node : null;
+			if ( parent ) {
+				parent.children.push( node );
+			} else {
+				root.push( node );
+			}
 
-      // Look ahead to collect title
+			// Assume all functions open blocks, track for end positions
+			scopeStack.push( { node, blockDepth: blockDepth + 1 } );
 
 
-      const node = {
-        type: "it",
-        title,
-        line: startLine,
-        offset: startOffset,
-        endLine: null,
-        endOffset: null,
-        children: [],
-        skipped: skipped,
-        range: {
-          start: { line: startLine, column: startColumn },
-          end: null // will be filled in when block ends
-        }
-      };
-      root.push(node);
-    }
-    // Increment the index
-    i++;
+		}
 
-  }
+		if ( isFunctionName( context ) && text.toLowerCase().startsWith( "test" ) ) {
 
-  return root;
+			const startLine = tokenStartLine;
+			const startColumn = tokenStartColumn;
+			const startOffset = tokenOffset;
+			const title = text;
+
+			// Look ahead to collect title
+
+
+			const node = {
+				type      : "it",
+				title,
+				line      : startLine,
+				offset    : startOffset,
+				endLine   : null,
+				endOffset : null,
+				children  : [],
+				skipped   : skipped,
+				range     : {
+					start : { line: startLine, column: startColumn },
+					end   : null // will be filled in when block ends
+				}
+			};
+			root.push( node );
+		}
+		// Increment the index
+		i++;
+
+	}
+
+	return root;
 }
 
 
-function lookAheadForTitle(tokens, startIndex, maxsearch = 100) {
-  let title = '';
-  let i = startIndex;
-  // let inFunctionCallParams = true;
-  let inString = false;
-  const maxLength = Math.min(tokens.length, startIndex + maxsearch);
-  for (i = startIndex; i < maxLength; i++) {
+function lookAheadForTitle( tokens, startIndex, maxsearch = 100 ) {
+	const title = "";
+	let i = startIndex;
+	// let inFunctionCallParams = true;
+	let inString = false;
+	const maxLength = Math.min( tokens.length, startIndex + maxsearch );
+	for ( i = startIndex; i < maxLength; i++ ) {
 
-    const [text, context] = tokens[i];
-    // inFunctionCallParams = context.includes("meta.function-call.parameters.cfml");
-    if (context.includes("punctuation.definition.string.begin.cfml")) {
-      inString = true;
-    }
-    if (context.includes("punctuation.definition.string.end.cfml")) {
-      inString = false;
-    }
+		const [
+			text,
+			context
+		] = tokens[i];
+		// inFunctionCallParams = context.includes("meta.function-call.parameters.cfml");
+		if ( context.includes( "punctuation.definition.string.begin.cfml" ) ) {
+			inString = true;
+		}
+		if ( context.includes( "punctuation.definition.string.end.cfml" ) ) {
+			inString = false;
+		}
 
-    if (inString
-      && !context.includes("punctuation.definition.string.begin.cfml")
-      && !context.includes("punctuation.definition.string.end.cfml")
-    ) {
-      return text;
-      // console.log({text}, {context});
+		if ( inString
+      && !context.includes( "punctuation.definition.string.begin.cfml" )
+      && !context.includes( "punctuation.definition.string.end.cfml" )
+		) {
+			return text;
+			// console.log({text}, {context});
 
-    }
+		}
 
-    //   if (text === '\n') {
-    //     break;
-    //   }
+		//   if (text === '\n') {
+		//     break;
+		//   }
 
-    //   if (isDoubleQuotedString(context)) {
-    //     title += text;
-    //   } else {
-    //     break;
-    //   }
-    // }
-    // while (i < tokens.length) {
-    //   const [text, context] = tokens[i];
+		//   if (isDoubleQuotedString(context)) {
+		//     title += text;
+		//   } else {
+		//     break;
+		//   }
+		// }
+		// while (i < tokens.length) {
+		//   const [text, context] = tokens[i];
 
-    //   if (text === '\n') {
-    //     break;
-    //   }
+		//   if (text === '\n') {
+		//     break;
+		//   }
 
-    //   if (isDoubleQuotedString(context)) {
-    //     title += text;
-    //   } else {
-    //     break;
-    //   }
+		//   if (isDoubleQuotedString(context)) {
+		//     title += text;
+		//   } else {
+		//     break;
+		//   }
 
-    //   i++;
-  }
+		//   i++;
+	}
 
-  return title.trim();
+	return title.trim();
 }
 
 module.exports = { parseTestTokens, getTestsFromFile, getTestsFromText, lookAheadForTitle, getTokensReport };

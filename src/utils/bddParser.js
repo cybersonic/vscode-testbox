@@ -9,32 +9,41 @@ function getLineColumn( text, offset ) {
 }
 
 // Helper: Given a full text, return an array of ranges that are within comments
-function getCommentRanges(text) {
-    const ranges = [];
+function getCommentRanges( text ) {
+	const ranges = [];
 
-    // Multi-line comments: /* ... */
-    const multiLineRegex = /\/\*[\s\S]*?\*\//g;
-    let match;
-    while ((match = multiLineRegex.exec(text)) !== null) {
-        ranges.push([match.index, match.index + match[0].length]);
-    }
+	// Multi-line comments: /* ... */
+	const multiLineRegex = /\/\*[\s\S]*?\*\//g;
+	let match;
+	while ( ( match = multiLineRegex.exec( text ) ) !== null ) {
+		ranges.push( [
+			match.index,
+			match.index + match[0].length
+		] );
+	}
 
-    // Single-line comments: // ...
-    const lines = text.split('\n');
-    let offset = 0;
-    for (const line of lines) {
-        const commentIndex = line.indexOf('//');
-        if (commentIndex !== -1) {
-            ranges.push([offset + commentIndex, offset + line.length]);
-        }
-        offset += line.length + 1; // include newline
-    }
+	// Single-line comments: // ...
+	const lines = text.split( "\n" );
+	let offset = 0;
+	for ( const line of lines ) {
+		const commentIndex = line.indexOf( "//" );
+		if ( commentIndex !== -1 ) {
+			ranges.push( [
+				offset + commentIndex,
+				offset + line.length
+			] );
+		}
+		offset += line.length + 1; // include newline
+	}
 
-    return ranges;
+	return ranges;
 }
 
-function isInComment(index, commentRanges) {
-    return commentRanges.some(([start, end]) => index >= start && index < end);
+function isInComment( index, commentRanges ) {
+	return commentRanges.some( ( [
+		start,
+		end
+	] ) => index >= start && index < end );
 }
 
 
@@ -67,7 +76,7 @@ function parseTestBlocks( text, startIndex = 0, stopIndex = text.length ) {
 	while ( index < stopIndex ) {
 		regex.lastIndex = index;
 		const match = regex.exec( text );
-		if ( !match || match.index >= stopIndex ) {break;}
+		if ( !match || match.index >= stopIndex ) { break; }
 
 		const blockName = match[1];
 		const globalStartOffset = match.index;
@@ -161,51 +170,51 @@ function extractLine( text, startOffset ) {
  * @param {string} line - The substring starting at the test call.
  * @returns {string} The extracted title (or an empty string if not found).
  */
-function extractTitleFromLine(line) {
-    // Match named: title: '...' or title = "..."
-    const matchNamed = line.match(/title\s*[:=]\s*(['"])((?:\\.|[^\\])*?)\1/);
-    if (matchNamed) {
-        return matchNamed[2].trim();
-    }
+function extractTitleFromLine( line ) {
+	// Match named: title: '...' or title = "..."
+	const matchNamed = line.match( /title\s*[:=]\s*(['"])((?:\\.|[^\\])*?)\1/ );
+	if ( matchNamed ) {
+		return matchNamed[2].trim();
+	}
 
-    // Fallback: match positional like it("Title", ...)
-    const matchPositional = line.match(/\(\s*(['"])((?:\\.|[^\\])*?)\1/);
-    if (matchPositional) {
-        return matchPositional[2].trim();
-    }
+	// Fallback: match positional like it("Title", ...)
+	const matchPositional = line.match( /\(\s*(['"])((?:\\.|[^\\])*?)\1/ );
+	if ( matchPositional ) {
+		return matchPositional[2].trim();
+	}
 
-    return '';
+	return "";
 }
 
 /**
  * This function is used to extract testItems  from a parsed cftokens object.
- * @param {*} cftokensParsedObject 
+ * @param {*} cftokensParsedObject
  */
 
 
-function getElementsFromParsed(cftokensParsedObject) {
-    const testItems = [];
-    var toplevel = cftokensParsedObject.elements || [];
-    console.log("Parsed Object: ", toplevel);
-    // let linecount = 0;
-    // for (item in toplevel) {
+function getElementsFromParsed( cftokensParsedObject ) {
+	const testItems = [];
+	const toplevel = cftokensParsedObject.elements || [];
+	console.log( "Parsed Object: ", toplevel );
+	// let linecount = 0;
+	// for (item in toplevel) {
 
-        // var testItem = {};
-        // testItem.name = toplevel[i].name;
-        // testItem.title = toplevel[i].title;
-        // testItem.fullLine = toplevel[i].fullLine;
-        // testItem.startOffset = toplevel[i].startOffset;
-        // testItem.endOffset = toplevel[i].endOffset;
-        // testItem.range = toplevel[i].range;
-        // testItem.children = getElementsFromParsed(toplevel[i]);
-        // testItems.push(testItem);
-    // }
-    // If the testItem has no children, remove the children property
-    return testItems;
+	// var testItem = {};
+	// testItem.name = toplevel[i].name;
+	// testItem.title = toplevel[i].title;
+	// testItem.fullLine = toplevel[i].fullLine;
+	// testItem.startOffset = toplevel[i].startOffset;
+	// testItem.endOffset = toplevel[i].endOffset;
+	// testItem.range = toplevel[i].range;
+	// testItem.children = getElementsFromParsed(toplevel[i]);
+	// testItems.push(testItem);
+	// }
+	// If the testItem has no children, remove the children property
+	return testItems;
 
 }
 module.exports = {
-    parseTestBlocks,
-    extractTitleFromLine,
-    getElementsFromParsed
+	parseTestBlocks,
+	extractTitleFromLine,
+	getElementsFromParsed
 };
