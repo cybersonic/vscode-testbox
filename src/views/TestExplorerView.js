@@ -305,12 +305,7 @@ async function createTestExplorerView( context ) {
 		controller.items.replace( [] ); // Clear out the previous items
 		return Promise.all(
 			vscode.workspace.workspaceFolders.map( async( workspaceFolder ) => {
-				console.log( `Discovering tests in workspace folder: ${workspaceFolder.name}` );
-				// const pattern = new vscode.RelativePattern(workspaceFolder, testFileGlob);
-
 				const allFiles = await vscode.workspace.findFiles( cfcFileGlob, excludedPathsConfig, maxFilesInWorkspace );
-
-
 				for ( const file of allFiles ) {
 					getOrCreateFile( file );
 				}
@@ -367,7 +362,7 @@ async function createTestExplorerView( context ) {
 		// Run each batch in parallel
 		for ( const batch of batches ) {
 			if ( token.isCancellationRequested ) { break; }
-			console.log( `Running batch of ${batch.length} tests...` );
+			// console.log( `Running batch of ${batch.length} tests...` );
 			const batchPromises = batch.map( async test => {
 				if ( token.isCancellationRequested ) { return; }
 				if ( request.exclude?.includes( test ) ) { return; }

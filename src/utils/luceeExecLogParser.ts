@@ -136,7 +136,7 @@ export class LuceeExecutionLogHeader {
 
   constructor(header: string) {
     // this.keys = keys;
-    console.log("Header: ", header);
+    // console.log("Header: ", header);
     const lines = header.split("\n");
     for (const line of lines) {
       const [key, value] = line.split(":");
@@ -166,8 +166,8 @@ export class LuceeExecutionLogHeader {
       .replace(/_/g, "");
   }
   getQueryStringValue(key: string) {
-    if (this.keys["query-string"] && this.keys["query-string"][key]) {
-      return this.keys["query-string"][key];
+    if (this.keys["queryString"] && this.keys["queryString"][key]) {
+      return this.keys["queryString"][key];
     }
     return null;
   }
