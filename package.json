@@ -36,6 +36,13 @@
     ],
     "main": "./src/extension",
     "contributes": {
+        "languages": [
+            {
+                "id": "boxlang",
+                "aliases": ["BoxLang"],
+                "extensions": [".bx",".bxm", ".bxs"]
+            }
+        ],
         "menus": {
           "testing/item/context": [
             {
@@ -330,10 +337,6 @@
         "typescript": "^5.7.3",
         "typescript-eslint": "^8.27.0"
     },
-    "extensionDependencies":[
-        "ortus-solutions.vscode-boxlang",
-        "ortus-solutions.vscode-commandbox"
-    ],
     "scripts": {
         "compile": "tsc -p ./tsconfig.json",
         "watch": "tsc -w",
