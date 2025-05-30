@@ -6,31 +6,31 @@ function testResultHandler(test, results, run) {
     updateTestWithResults(test, results, run);
     // Great! If we have children, we have to go through them and update them recursively.
 
-    // Now let's output any errors or failures to the output window.
+	// Now let's output any errors or failures to the output window.
 
-    let specs = [];
-    findSpecsInResults(results, specs);
-    for (let spec of specs) {
-        updateSpecWithResults(spec, test, run);
-    }
+	const specs = [];
+	findSpecsInResults( results, specs );
+	for ( const spec of specs ) {
+		updateSpecWithResults( spec, test, run );
+	}
 
 }
 // Returns a position from the stack trace if we can.
-function findPositionFromStack(test, stack) {
+function findPositionFromStack( test, stack ) {
 
-    const testPath = test.uri.fsPath;
-    // This needs path mapping from local -> server (or docker)
-    for (let trace of stack) {
-        if (trace.template === testPath) {
-            return new vscode.Position(trace.line + 1, trace.column + 1);
-        }
+	const testPath = test.uri.fsPath;
+	// This needs path mapping from local -> server (or docker)
+	for ( const trace of stack ) {
+		if ( trace.template === testPath ) {
+			return new vscode.Position( trace.line + 1, trace.column + 1 );
+		}
 
-    }
-    // Get the position of the test if we cant get it from the stack trace.
-    return new vscode.Position(test.range.start.line, test.range.start.character);
+	}
+	// Get the position of the test if we cant get it from the stack trace.
+	return new vscode.Position( test.range.start.line, test.range.start.character );
 }
 
-function updateSpecWithResults(specResult, test, run) {
+function updateSpecWithResults( specResult, test, run ) {
 
     // We might have a bunch of results inside the children so we need to check the result for each spec.
     if (test.tags.includes("spec") && test.label === specResult.name) {
@@ -76,33 +76,28 @@ function updateSpecWithResults(specResult, test, run) {
     }
 }
 
-function findSpecsInResults(results, specs) {
+function findSpecsInResults( results, specs ) {
 
+	if ( results.hasOwnProperty( "specStats" ) ) {
+		for ( const spec of results.specStats ) {
+			specs.push( spec );
+		}
+	}
 
-    if (results.hasOwnProperty("specStats")) {
-        for (let spec of results.specStats) {
-            specs.push(spec);
-        }
-    }
+	if ( results.hasOwnProperty( "suiteStats" ) ) {
+		for ( const suite of results.suiteStats ) {
+			findSpecsInResults( suite, specs );
+		}
+	}
 
-    if (results.hasOwnProperty("suiteStats")) {
-        for (let suite of results.suiteStats) {
-            findSpecsInResults(suite, specs);
-        }
-    }
-
-
-    if (results.hasOwnProperty("bundleStats")) {
-        let bundleStats = results.bundleStats.filter(bundle => bundle.totalSuites > 0);
-        for (let bundle of bundleStats) {
-            findSpecsInResults(bundle, specs);
-        }
-    }
-
-
+	if ( results.hasOwnProperty( "bundleStats" ) ) {
+		const bundleStats = results.bundleStats.filter( bundle => bundle.totalSuites > 0 );
+		for ( const bundle of bundleStats ) {
+			findSpecsInResults( bundle, specs );
+		}
+	}
 
 }
-
 
 function getAllSpecsFromTest(test){
     let specs = [];
@@ -159,19 +154,19 @@ function updateTestWithResults(test, resultSpec, run) {
     
 }
 
-function findSuiteInResults(test, resultsArr) {
-    for (const result of resultsArr) {
-        if (result.name === test.label) {
-            return result;
-        }
-        if (result.suiteStats) {
-            const found = findSuiteInResults(test, result.suiteStats);
-            if (found) {
-                return found;
-            }
-        }
-    }
-    return null;
+function findSuiteInResults( test, resultsArr ) {
+	for ( const result of resultsArr ) {
+		if ( result.name === test.label ) {
+			return result;
+		}
+		if ( result.suiteStats ) {
+			const found = findSuiteInResults( test, result.suiteStats );
+			if ( found ) {
+				return found;
+			}
+		}
+	}
+	return null;
 }
 
 /**

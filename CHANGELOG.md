@@ -5,7 +5,7 @@ All notable changes to the "vscode-testbox" extension will be documented in this
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-****
+* * *
 
 ## [Unreleased]
 ## [3.0.8] - 2024-02-29
@@ -14,6 +14,21 @@ Added a parser to parse the test files and find the tests in them
 Added a command to TestView to view the selected test in a browser
 
 
+
+## [3.0.0] - 2025-03-24
+
+### Added
+
+- Test Explorer thanks to Mark Drew
+- TestBox v6 support
+- TestBox BoxLang Support
+- ESLinting updated and all JS files linted
+- Formatting and code quality updates
+- Updated all snippets thanks to Sublime Text snippets
+- Updated all GitHub Actions
+- Automated snapshots
+
+## [2.0.0] - 2023-06-15
 
 ### Added
 
@@ -43,4 +58,7 @@ Added a command to TestView to view the selected test in a browser
 ## [0.1.0] - 2017-11-08
 
 - Initial release.
-- Converted TestBox and MockBox snippets from https://github.com/lmajano/cbox-coldbox-sublime.
+- Converted TestBox and MockBox snippets from <https://github.com/lmajano/cbox-coldbox-sublime>.
+
+[unreleased]: https://github.com/Ortus-Solutions/vscode-testbox/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/Ortus-Solutions/vscode-testbox/compare/5662ab33037a602d1e8b62adc06590cd1d3ad2cf...v3.0.0

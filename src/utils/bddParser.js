@@ -1,14 +1,11 @@
 // Helper: Given a global offset in the full text,
 // return a Position object { line, character } (both 0-indexed).
-
-
-
-function getLineColumn(text, offset) {
-    const substring = text.slice(0, offset);
-    const lines = substring.split('\n');
-    const line = lines.length - 1;
-    const character = lines[lines.length - 1].length;
-    return { line, character };
+function getLineColumn( text, offset ) {
+	const substring = text.slice( 0, offset );
+	const lines = substring.split( "\n" );
+	const line = lines.length - 1;
+	const character = lines[lines.length - 1].length;
+	return { line, character };
 }
 
 // Helper: Given a full text, return an array of ranges that are within comments
@@ -61,66 +58,59 @@ function isInComment(index, commentRanges) {
  *     children: Array       // nested blocks
  *   }
  */
-function parseTestBlocks(text, startIndex = 0, stopIndex = text.length, parentSkipped = false) {
-    const blocks = [];
-    const regex = /\b(x?it|x?describe|x?given|x?when|x?then|x?feature|x?scenario|x?story)\s*\(/g;
-    let index = startIndex;
+function parseTestBlocks( text, startIndex = 0, stopIndex = text.length ) {
+	const blocks = [];
+	// Todo: add support for commented out blocks. These will show up in the explorer.
+	const regex = /\b(it|describe|given|when|then|feature|scenario|story)\s*\(/g;
+	let index = startIndex;
 
-    const commentRanges = getCommentRanges(text);
+	while ( index < stopIndex ) {
+		regex.lastIndex = index;
+		const match = regex.exec( text );
+		if ( !match || match.index >= stopIndex ) {break;}
 
-    while (index < stopIndex) {
-        regex.lastIndex = index;
-        const match = regex.exec(text);
-        if (!match || match.index >= stopIndex) break;
+		const blockName = match[1];
+		const globalStartOffset = match.index;
+		const fullLine = extractLine( text, globalStartOffset );
+		const title = extractTitleFromLine( text.substring( globalStartOffset ) );
 
-        const blockStart = match.index;
-        if (isInComment(blockStart, commentRanges)) {
-            index = match.index + match[0].length;
-            continue;
-        }
+		let absEndOffset;
+		let children = [];
 
-        const rawBlockName = match[1]; // might be e.g. "xdescribe"
-        const isSkipped = parentSkipped || rawBlockName.startsWith('x');
-        const blockName = rawBlockName.replace(/^x/, ''); // normalize to 'describe', 'it', etc.
+		// Look for the first '{' after the test call
+		const openBracePos = text.indexOf( "{", globalStartOffset );
+		if ( openBracePos === -1 || openBracePos >= stopIndex ) {
+			// No block body found; end of call is the match end.
+			absEndOffset = globalStartOffset + match[0].length;
+		} else {
+			// Find the matching closing brace.
+			const { content, endPos: blockEndPos } = parseBlockContent( text, openBracePos );
+			absEndOffset = blockEndPos;
+			// Recursively parse nested test blocks from the block's content.
+			// Use blockEndPos as the stopIndex so we don't scan past the current block.
+			children = parseTestBlocks( text, openBracePos + 1, blockEndPos - 1 );
+		}
 
-        const globalStartOffset = match.index;
-        
-        const fullLine = extractLine(text, globalStartOffset);
-        const title = extractTitleFromLine(text.substring(globalStartOffset));
+		const range = {
+			start : getLineColumn( text, globalStartOffset ),
+			end   : getLineColumn( text, absEndOffset )
+		};
 
-        let absEndOffset;
-        let children = [];
+		blocks.push( {
+			name        : blockName,
+			title,
+			fullLine,
+			startOffset : globalStartOffset,
+			endOffset   : absEndOffset,
+			range,
+			children
+		} );
 
-        const openBracePos = text.indexOf('{', globalStartOffset);
-        if (openBracePos === -1 || openBracePos >= stopIndex) {
-            absEndOffset = globalStartOffset + match[0].length;
-        } else {
-            const { endPos: blockEndPos } = parseBlockContent(text, openBracePos);
-            absEndOffset = blockEndPos;
-
-            // 🔁 Recurse with skip status inherited
-            children = parseTestBlocks(text, openBracePos + 1, blockEndPos - 1, isSkipped);
-        }
-
-        const range = {
-            start: getLineColumn(text, globalStartOffset),
-            end: getLineColumn(text, absEndOffset)
-        };
-
-        blocks.push({
-            name: blockName,
-            title,
-            fullLine,
-            startOffset: globalStartOffset,
-            endOffset: absEndOffset,
-            range,
-            children,
-            skipped: isSkipped
-        });
-
-        index = absEndOffset;
-    }
-    return blocks;
+		// Advance index to the end of the current block, so nested nodes
+		// are only captured in `children` and not re-scanned at the top level.
+		index = absEndOffset;
+	}
+	return blocks;
 }
 
 
@@ -132,31 +122,31 @@ function parseTestBlocks(text, startIndex = 0, stopIndex = text.length, parentSk
  * @param {number} openBracePos - The index of the opening '{'.
  * @returns {{ content: string, endPos: number }} - The content inside the braces and the position immediately after the matching '}'.
  */
-function parseBlockContent(text, openBracePos) {
-    let openCount = 1;
-    let pos = openBracePos + 1;
-    while (pos < text.length && openCount > 0) {
-        if (text[pos] === '{') {
-            openCount++;
-        } else if (text[pos] === '}') {
-            openCount--;
-        }
-        pos++;
-    }
-    const content = text.substring(openBracePos + 1, pos - 1);
-    return { content, endPos: pos };
+function parseBlockContent( text, openBracePos ) {
+	let openCount = 1;
+	let pos = openBracePos + 1;
+	while ( pos < text.length && openCount > 0 ) {
+		if ( text[pos] === "{" ) {
+			openCount++;
+		} else if ( text[pos] === "}" ) {
+			openCount--;
+		}
+		pos++;
+	}
+	const content = text.substring( openBracePos + 1, pos - 1 );
+	return { content, endPos: pos };
 }
 
 /**
  * Extract the entire line from `text` starting at `startOffset`
  * until the next newline (or the end of `text`).
  */
-function extractLine(text, startOffset) {
-    const newlinePos = text.indexOf('\n', startOffset);
-    if (newlinePos === -1) {
-        return text.substring(startOffset);
-    }
-    return text.substring(startOffset, newlinePos);
+function extractLine( text, startOffset ) {
+	const newlinePos = text.indexOf( "\n", startOffset );
+	if ( newlinePos === -1 ) {
+		return text.substring( startOffset );
+	}
+	return text.substring( startOffset, newlinePos );
 }
 
 

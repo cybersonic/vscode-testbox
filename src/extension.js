@@ -3,44 +3,48 @@ const BoxCommand = require("./box-command");
 const { LOG } = require('./utils/logger');
 
 const { createTestExplorerView } = require('./views/TestExplorerView');
-
+const { LOG } = require( "./utils/logger" );
 let globalCommand = new BoxCommand({ runHarness: true });
 
-module.exports.activate = function (context) {
+// this method is called when your extension is activated
+// your extension is activated the very first time the command is executed
+
+module.exports.activate = function( context ) {
 	// Use the console to output diagnostic information (LOG.info) and errors (console.error)
-	let disposables = [];
+	LOG.debug( "Starting TestBox Extension" );
+	const disposables = [];
 
 	// Display a message box to the user
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with `registerCommand`
 	// The `commandId` parameter must match the command field in package.json
-	disposables.push(vscode.commands.registerCommand("testbox.jumpToSpec", () => jumpToSpec()));
+	disposables.push( vscode.commands.registerCommand( "testbox.jumpToSpec", () => jumpToSpec() ) );
 
 	// Run the entire test harness
-	disposables.push(vscode.commands.registerCommand("testbox.run-harness", async () => {
-		await runCommand(new BoxCommand({ runHarness: true }));
-	}));
+	disposables.push( vscode.commands.registerCommand( "testbox.run-harness", async() => {
+		await runCommand( new BoxCommand( { runHarness: true } ) );
+	} ) );
 
 	// Run a Test Bundle
-	disposables.push(vscode.commands.registerCommand("testbox.run-bundle", async () => {
-		await runCommand(new BoxCommand({ runBundle: true }));
-	}));
+	disposables.push( vscode.commands.registerCommand( "testbox.run-bundle", async() => {
+		await runCommand( new BoxCommand( { runBundle: true } ) );
+	} ) );
 
 	// Run a Test Bundle Spec
-	disposables.push(vscode.commands.registerCommand("testbox.run-spec", async () => {
-		await runCommand(new BoxCommand({ runSpec: true }));
-	}));
+	disposables.push( vscode.commands.registerCommand( "testbox.run-spec", async() => {
+		await runCommand( new BoxCommand( { runSpec: true } ) );
+	} ) );
 
 	// Run Previous
-	disposables.push(vscode.commands.registerCommand("testbox.run-previous", async () => {
+	disposables.push( vscode.commands.registerCommand( "testbox.run-previous", async() => {
 		await runPreviousCommand();
-	}));
+	} ) );
 
 	// Register the TestBox Runnable Task
 	// https://code.visualstudio.com/api/extension-guides/task-provider
 	// TODO: this fails on startup since globalCommand is not set yet
-	disposables.push(vscode.tasks.registerTaskProvider("testbox", {
-		provideTasks: () => {
+	disposables.push( vscode.tasks.registerTaskProvider( "testbox", {
+		provideTasks : () => {
 			return [
 				new vscode.Task(
 					// The task definition
@@ -52,13 +56,13 @@ module.exports.activate = function (context) {
 					// The task's source, in our case our registered name of 'testbox'
 					"testbox",
 					// Shell execution via the command output() method
-					new vscode.ShellExecution(globalCommand.output),
+					new vscode.ShellExecution( globalCommand.output ),
 					// The problem matcher id => package.json
 					"$testbox"
 				)
 			];
 		}
-	}));
+	} ) );
 
 	
 	
@@ -66,14 +70,11 @@ module.exports.activate = function (context) {
 	// Add the UI Panel for the TestBox Runner
 	const { controller } = createTestExplorerView(context);
 	disposables.push(controller);
-	// disposables.push(watcher);
-	// disposables.push(settingsWatcher);
 
 	
 	// Listen for configuration changes
-
-	context.subscriptions.push(disposables);
-	LOG.info("Congratulations, the \"TestBox\" Extension is now active!");
+	context.subscriptions.push( disposables );
+	LOG.info( "💪 Congratulations, the \"TestBox\" Extension is now active!" );
 
 };
 
@@ -85,7 +86,7 @@ module.exports.deactivate = () => {
 };
 
 // This method is exposed for testing purposes.
-module.exports.getGlobalCommandInstance = function () {
+module.exports.getGlobalCommandInstance = function() {
 	return globalCommand;
 };
 
@@ -94,7 +95,7 @@ module.exports.getGlobalCommandInstance = function () {
  *
  * @param {*} commandInstance
  */
-function setGlobalCommandInstance(commandInstance) {
+function setGlobalCommandInstance( commandInstance ) {
 	globalCommand = commandInstance;
 }
 
@@ -103,23 +104,25 @@ function setGlobalCommandInstance(commandInstance) {
  *
  * @param {*} command The command instance to run
  */
-async function runCommand(command) {
+async function runCommand( command ) {
 	// Verify we have an active editor or show error
-	vscode.window.activeTextEditor
-		|| vscode.window.showErrorMessage("TestBox: open a file to run this command");
+	if ( !vscode.window.activeTextEditor ) {
+		vscode.window.showErrorMessage( "TestBox: open a file to run this command" );
+		return;
+	}
 
 	// Store the latest command to execute and run it
-	setGlobalCommandInstance(command);
-	await vscode.commands.executeCommand("workbench.action.terminal.clear");
-	await vscode.commands.executeCommand("workbench.action.tasks.runTask", "testbox: run");
+	setGlobalCommandInstance( command );
+	await vscode.commands.executeCommand( "workbench.action.terminal.clear" );
+	await vscode.commands.executeCommand( "workbench.action.tasks.runTask", "testbox: run" );
 }
 
 /**
  * Run the previous command via the testbox: run task
  */
 async function runPreviousCommand() {
-	await vscode.commands.executeCommand("workbench.action.terminal.clear");
-	await vscode.commands.executeCommand("workbench.action.tasks.runTask", "testbox: run");
+	await vscode.commands.executeCommand( "workbench.action.terminal.clear" );
+	await vscode.commands.executeCommand( "workbench.action.tasks.runTask", "testbox: run" );
 }
 
 /**
@@ -128,42 +131,42 @@ async function runPreviousCommand() {
  * @returns void
  */
 function jumpToSpec() {
-	let editor = vscode.window.activeTextEditor;
-	if (!editor) {
+	const editor = vscode.window.activeTextEditor;
+	if ( !editor ) {
 		return;
 	}
 
-	getTests(editor.document)
-		.then(tests => {
+	getTests( editor.document )
+		.then( tests => {
 			// LOG.info( "Found tests:", tests );
-			const aTestsMetadata = tests.map(test => {
+			const aTestsMetadata = tests.map( test => {
 				return {
-					label: test.lineText.text.replace(/,\s?function\(\)\s?\{/, " "),
-					//detail : `Line number: ${test.lineText.lineNumber + 1}`
-					description: "",
-					lineNumber: test.lineText.lineNumber + 1
+					label       : test.lineText.text.replace( /,\s?function\(\)\s?\{/, " " ),
+					// detail : `Line number: ${test.lineText.lineNumber + 1}`
+					description : "",
+					lineNumber  : test.lineText.lineNumber + 1
 				};
-			});
+			} );
 
 			vscode.window.showQuickPick(
 				aTestsMetadata,
 				{ placeHolder: "Select a spec to jump to", title: "TestBox Spec Jump" }
-			).then(selection => {
+			).then( selection => {
 				if (
 					!selection ||
 					!selection.lineNumber
 				) {
-					vscode.window.showWarningMessage('No spec selected.');
+					vscode.window.showWarningMessage( "No spec selected." );
 				} else {
-					goToLine(Number(selection.lineNumber));
-					vscode.window.showInformationMessage(`Jumping to ${selection.label}`);
+					goToLine( Number( selection.lineNumber ) );
+					vscode.window.showInformationMessage( `Jumping to ${selection.label}` );
 				}
-			});
-		})
-		.catch((error) => {
-			console.error(error);
-			vscode.window.showWarningMessage(error);
-		});
+			} );
+		} )
+		.catch( ( error ) => {
+			console.error( error );
+			vscode.window.showWarningMessage( error );
+		} );
 }
 
 /**
@@ -172,15 +175,15 @@ function jumpToSpec() {
  * @param {*} line The line number to go to
  * @returns void
  */
-function goToLine(line) {
+function goToLine( line ) {
 	const editor = vscode.window.activeTextEditor;
-	if (!editor) {
-		console.error(`Cannot go to line ${line} as editor is not active`);
+	if ( !editor ) {
+		console.error( `Cannot go to line ${line} as editor is not active` );
 		return;
 	}
-	let range = editor.document.lineAt(line - 1).range;
-	editor.selection = new vscode.Selection(range.start, range.end);
-	editor.revealRange(range);
+	const range = editor.document.lineAt( line - 1 ).range;
+	editor.selection = new vscode.Selection( range.start, range.end );
+	editor.revealRange( range );
 }
 
 /**
@@ -190,31 +193,34 @@ function goToLine(line) {
  *
  * @returns {Promise} A promise of the found tests or none at all
  */
-function getTests(document) {
+function getTests( document ) {
 	// Return a promise, since this might take a while for large documents
-	return new Promise((resolve, reject) => {
-		let testsToReturn = [];
-		let lineCount = document.lineCount;
+	return new Promise( ( resolve, reject ) => {
+		const testsToReturn = [];
+		const lineCount = document.lineCount;
 
 		// Parse each line of the doc for tests
-		for (let lineNumber = 0; lineNumber < lineCount; lineNumber++) {
-			let lineText = document.lineAt(lineNumber);
+		for ( let lineNumber = 0; lineNumber < lineCount; lineNumber++ ) {
+			const lineText = document.lineAt( lineNumber );
 			// Skip know no code scenarios
-			if (lineText.isEmptyOrWhitespace) {
+			if ( lineText.isEmptyOrWhitespace ) {
 				continue;
 			}
 			// Does it match the testbox regex patterns
-			let tests = lineText.text.match(
+			const tests = lineText.text.match(
 				/\sx?(it\(|describe\(|given\(|when\(|then\(|feature\(|scenario\(|story\()/g
 			);
 			// Did we find any?
-			if (tests) {
-				testsToReturn.push({ lineText: lineText });
+			if ( tests ) {
+				testsToReturn.push( { lineText: lineText } );
 			}
 		}
+
 		// Resolve or reject
-		testsToReturn.length > 0
-			? resolve(testsToReturn)
-			: reject("Found no tests");
-	});
+		if ( testsToReturn.length > 0 ) {
+			resolve( testsToReturn );
+		} else {
+			reject( "Found no tests" );
+		}
+	} );
 }
