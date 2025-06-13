@@ -71,7 +71,7 @@ function renderResult( results, run ) {
 	}
 
 	run.appendOutput( `${BOLD}TestBox\t\t${results.version} ${nl}` );
-	run.appendOutput( `${BOLD}CFML Engine\t${results.CFMLEngine} v {results.CFMLEngineVersion}${nl}` );
+	run.appendOutput( `${BOLD}CFML Engine\t${results.CFMLEngine} v ${results.CFMLEngineVersion}${nl}` );
 	run.appendOutput( `${BOLD}Duration\t${results.totalDuration}ms${nl}` );
 	run.appendOutput( `${BOLD}Labels\t\t${labels}${nl}` );
 	run.appendOutput( nl );

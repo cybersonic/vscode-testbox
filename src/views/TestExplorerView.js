@@ -3,7 +3,7 @@ const { generateTreeFromText, TreeSuite, TreeSpec } = require( "../utils/testTre
 const { parseTestResults, getAllSpecsFromTest, updateTestWithResults } = require( "../utils/resultParser" );
 const { renderResult } = require( "../utils/resultRenderer" );
 const { minimatch } = require( "minimatch" );
-// const { parseLuceeExecLog, LuceeExectionReport } = require("../utils/luceeExecLogParser");
+
 
 const testFileGlob = "**/*{Spec,Test,Tests}.cfc"; // <-- should be configurable
 // TODO: Enable this for Boxlang Files too. There should be a way to detect this rather than hardcoding it.

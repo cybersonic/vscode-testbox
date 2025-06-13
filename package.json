@@ -2,7 +2,7 @@
     "name": "vscode-testbox",
     "displayName": "TestBox TDD/BDD Support",
     "description": "TestBox Support for Visual Studio Code",
-    "version": "2.0.3",
+    "version": "3.0.1",
     "publisher": "ortus-solutions",
     "icon": "images/icon.png",
     "engines": {
